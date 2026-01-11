@@ -34,10 +34,10 @@ class LivesManager: #Gère l'affichage des vies
         for i in range(10):
             if i < joueur.vies:
                 #Cœur plein
-                texte_coeur = self.police_titre.render("♥", True, self.ROUGE)
+                texte_coeur = self.police_titre.render("💖", True, self.ROUGE)
             else:
                 #Cœur vide
-                texte_coeur = self.police_titre.render("♥", True, self.GRIS_VIDE)
+                texte_coeur = self.police_titre.render("💖", True, self.GRIS_VIDE)
             
             ecran.blit(texte_coeur, (x_coeur, y_coeur))
             x_coeur += 35

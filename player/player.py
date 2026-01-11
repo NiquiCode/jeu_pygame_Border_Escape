@@ -10,7 +10,7 @@ class Joueur:
     
     def __init__(self, nom, couleur, position_spawn=(100, 100)):
         self.nom = nom
-        self.vies = 20  # 20 vies au départ
+        self.vies = 10  # 10 vies au départ
         self.score = 0
         self.couleur = couleur
         self.x = position_spawn[0]
