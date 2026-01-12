@@ -29,7 +29,6 @@ class LivesManager: # Gère l'affichage des vies
         # Fond
         fond = pygame.Surface((width, height))
         fond.fill(self.GRIS)
-        pygame.draw.rect(fond, self.ROUGE, (0, 0, width, height), 2)
         ecran.blit(fond, (x_pos, y_pos))
         
         # Nom du joueur

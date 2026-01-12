@@ -28,7 +28,6 @@ class ScoringSystem: #Gère le calcul et l'affichage des scores
         #Fond noir
         fond = pygame.Surface((250, 120))
         fond.fill(self.GRIS)
-        pygame.draw.rect(fond, self.JAUNE, (0, 0, 250, 120), 4)
         ecran.blit(fond, (20, 20))
         
         #Score équipe
@@ -83,14 +82,10 @@ class ScoringSystem:
             score_total += joueur.score
         return score_total
     
-    def afficher_hud_score(self, ecran, joueurs, joueur_actuel_index, map_manager): 
-        """
-        Affiche le HUD complet : Score Équipe, Score Perso et Progression Quêtes
-        """
-        # Fond plus grand (hauteur passée de 120 à 180 pour faire de la place)
+    def afficher_hud_score(self, ecran, joueurs, joueur_actuel_index, map_manager): #Affiche le HUD complet : Score Équipe, Score Perso et Progression Quêtes
+        #Fond plus grand (hauteur passée de 120 à 180 pour faire de la place)
         fond = pygame.Surface((250, 180))
         fond.fill(self.GRIS)
-        pygame.draw.rect(fond, self.JAUNE, (0, 0, 250, 180), 3)
         ecran.blit(fond, (20, 20))
         
         # --- 1. Score Équipe ---
