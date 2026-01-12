@@ -1,111 +1,133 @@
-#Rôle :
-# - Initialiser PyGame
-# - Gérer les événements globaux (quitter le jeu)
-# - Appeler les méthodes update() et draw() du GameManager
-
 import pygame
 import sys
-from player.player import Joueur
+
+# --- IMPORTS ---
+from player.player import Player  
 from gameplay.scoring import ScoringSystem
 from player.lives_manager import LivesManager
+from gameplay.central_room import CentralRoom
+from gameplay.map_manager import MapManager
+from gameplay.puzzle_rooms import PuzzleRoom
 from ui.hud import HUD
+from ui.minimap import Minimap
 from ui.end_screen import EndScreen
+from ui.death_screen import DeathScreen
 
-#Initialisation
 pygame.init()
-
-#Constantes
-LARGEUR = 1000
-HAUTEUR = 700
-FPS = 60
-
-#Écran
+LARGEUR, HAUTEUR = 1000, 700
 ecran = pygame.display.set_mode((LARGEUR, HAUTEUR))
-pygame.display.set_caption("Border Escape - PoC Scoring")
+pygame.display.set_caption("Border Escape - Full Game")
 horloge = pygame.time.Clock()
 
-#Couleurs
-NOIR = (15, 15, 30)
-BLEU = (52, 152, 219)
-ROSE = (255, 105, 180)
-VERT = (46, 204, 113)
-
-#Création des systèmes
+# Systèmes
 scoring_system = ScoringSystem()
 lives_manager = LivesManager()
 hud = HUD(LARGEUR)
 end_screen = EndScreen(LARGEUR, HAUTEUR)
+death_screen = DeathScreen(LARGEUR, HAUTEUR)
 
-#Création des joueurs
+# Joueurs
 joueurs = [
-    Joueur("Cédric", BLEU),
-    Joueur("Alice", ROSE),
-    Joueur("Bob", VERT)
+    Player("Cédric", (52, 152, 219)), 
+    Player("Alice", (255, 105, 180)), 
+    Player("Bob", (46, 204, 113))
 ]
-
 joueur_actuel_index = 0
-partie_terminee = False
 
-#Boucle principale
-en_cours = True
-while en_cours:
-    #Événements
+# Gameplay
+map_manager = MapManager()
+central_room = CentralRoom(LARGEUR, HAUTEUR, map_manager)
+minimap = Minimap(LARGEUR, HAUTEUR, map_manager)
+
+# Variable pour stocker l'énigme en cours
+puzzle_actif = None 
+
+partie_terminee = False
+etat_jeu = "CENTRAL" # États : CENTRAL, ENIGME, MORT, FIN
+
+while True:
+    joueur_actif = joueurs[joueur_actuel_index]
+
     for event in pygame.event.get():
         if event.type == pygame.QUIT:
-            en_cours = False
+            pygame.quit(); sys.exit()
         
-        if event.type == pygame.KEYDOWN:
-            #Touche R pour rejouer
-            if event.key == pygame.K_r and partie_terminee:
-                for joueur in joueurs:
-                    joueur.vies = 10
-                    joueur.score = 0
-                joueur_actuel_index = 0
-                partie_terminee = False
+        # --- GESTION ÉTAT : MORT ---
+        if etat_jeu == "MORT":
+            if death_screen.handle_input(event): # Si clic sur Rejouer
+                joueur_actif.reset()       
+                map_manager.generate_new_map() 
+                central_room.reset_round()
+                etat_jeu = "CENTRAL"
+        
+        # --- GESTION ÉTAT : ENIGME ---
+        elif etat_jeu == "ENIGME" and puzzle_actif:
+            resultat = puzzle_actif.handle_event(event)
             
-            #Touche F pour terminer (test)
-            if event.key == pygame.K_f:
-                partie_terminee = True
-            
-            #Touche ESPACE pour réussir énigme (test)
-            if event.key == pygame.K_SPACE and not partie_terminee:
-                scoring_system.recompenser_enigme_reussie(joueurs[joueur_actuel_index])
-            
-            #Touche X pour rater énigme (test)
-            if event.key == pygame.K_x and not partie_terminee:
-                scoring_system.penaliser_enigme_ratee(joueurs[joueur_actuel_index])
-            
-            #Touche C pour changer joueur (test)
-            if event.key == pygame.K_c and not partie_terminee:
-                joueur_actuel_index = (joueur_actuel_index + 1) % len(joueurs)
-    
-    #Affichage
-    ecran.fill(NOIR)
-    
+            if resultat is True: # GAGNÉ
+                print("Énigme réussie !")
+                joueur_actif.gagner_points(100)
+                map_manager.quests_completed += 1
+                map_manager.check_exit_condition()
+                central_room.reset_round() 
+                etat_jeu = "CENTRAL"
+                puzzle_actif = None
+
+            elif resultat is False: # PERDU
+                print("Énigme ratée...")
+                joueur_actif.perdre_points(50)
+                joueur_actif.perdre_vie()
+                
+                if joueur_actif.vies <= 0:
+                    etat_jeu = "MORT"
+                else:
+                    puzzle_actif = PuzzleRoom() 
+
+        # --- GESTION ÉTAT : CENTRAL ---
+        elif etat_jeu == "CENTRAL":
+            if event.type == pygame.KEYDOWN:
+                if event.key == pygame.K_m:
+                    minimap.toggle()
+                if event.key == pygame.K_c:
+                    joueur_actuel_index = (joueur_actuel_index + 1) % len(joueurs)
+
+    # --- UPDATE & DRAW ---
     if not partie_terminee:
-        #Afficher HUD
-        scoring_system.afficher_hud_score(ecran, joueurs, joueur_actuel_index)
-        lives_manager.afficher_vies(ecran, joueurs[joueur_actuel_index])
-        hud.afficher_liste_joueurs(ecran, joueurs, joueur_actuel_index)
-        
-        #Instructions
-        police = pygame.font.Font(None, 20)
-        instructions = [
-            "ESPACE = Réussir énigme (+100 pts)",
-            "X = Rater énigme (-1 vie)",
-            "C = Changer joueur",
-            "F = Écran de fin"
-        ]
-        y = HAUTEUR - 120
-        for texte in instructions:
-            surface = police.render(texte, True, (200, 200, 200))
-            ecran.blit(surface, (LARGEUR // 2 - 150, y))
-            y += 25
+        ecran.fill((0, 0, 0))
+
+        # A. SALLE CENTRALE
+        if etat_jeu == "CENTRAL":
+            result = central_room.update(joueur_actif)
+            central_room.draw(ecran)
+            
+            if joueur_actif.vies <= 0:
+                etat_jeu = "MORT"
+
+            elif result == "LANCER_ENIGME":
+                puzzle_actif = PuzzleRoom()
+                etat_jeu = "ENIGME"
+            
+            elif result == "FIN_DU_JEU":
+                partie_terminee = True
+
+        # B. ÉNIGME
+        elif etat_jeu == "ENIGME" and puzzle_actif:
+            puzzle_actif.draw(ecran)
+
+        # C. MORT
+        elif etat_jeu == "MORT":
+            central_room.draw(ecran)
+            death_screen.draw(ecran)
+
+        # --- UI GLOBALE ---
+        if etat_jeu != "MORT":
+            # MODIFICATION ICI : On passe map_manager pour afficher les quêtes
+            scoring_system.afficher_hud_score(ecran, joueurs, joueur_actuel_index, map_manager)
+            lives_manager.afficher_vies(ecran, joueurs[joueur_actuel_index])
+            minimap.draw(ecran)
+
     else:
         end_screen.afficher(ecran, joueurs)
     
     pygame.display.flip()
-    horloge.tick(FPS)
-
-pygame.quit()
-sys.exit()
+    horloge.tick(60)
