@@ -12,6 +12,7 @@ from ui.hud import HUD
 from ui.minimap import Minimap
 from ui.end_screen import EndScreen
 from ui.death_screen import DeathScreen
+from ui.menu import LobbyMenu
 from network.server import GameServer
 from network.client import GameClient
 
@@ -26,8 +27,6 @@ font_joueur = pygame.font.SysFont(None, 24)
 font_titre = pygame.font.SysFont(None, 52)
 font_texte = pygame.font.SysFont(None, 36)
 font_input = pygame.font.SysFont(None, 42)
-font_lobby = pygame.font.SysFont(None, 32)
-font_chat = pygame.font.SysFont(None, 26)
 
 
 def demander_pseudo(screen, clock, largeur, hauteur):
@@ -157,56 +156,6 @@ def demander_ip(screen, clock, largeur, hauteur):
         clock.tick(60)
 
 
-def dessiner_lobby(screen, largeur, hauteur, players, est_host, chat_messages, chat_input):
-    screen.fill((18, 24, 40))
-
-    titre = font_titre.render("Lobby Multijoueur", True, (255, 255, 255))
-    sous_titre = font_texte.render("Joueurs connectés :", True, (220, 220, 220))
-
-    screen.blit(titre, titre.get_rect(center=(largeur // 2, 60)))
-    screen.blit(sous_titre, sous_titre.get_rect(center=(220, 130)))
-
-    y = 180
-    for player in players:
-        texte = font_lobby.render(f"- {player.nom}", True, player.couleur)
-        screen.blit(texte, (80, y))
-        y += 40
-
-    chat_box = pygame.Rect(450, 140, 480, 360)
-    pygame.draw.rect(screen, (30, 38, 58), chat_box)
-    pygame.draw.rect(screen, (255, 255, 255), chat_box, 2)
-
-    chat_title = font_texte.render("Chat", True, (255, 255, 255))
-    screen.blit(chat_title, (460, 105))
-
-    visible_messages = chat_messages[-10:]
-    y_msg = 160
-    for msg in visible_messages:
-        texte = font_chat.render(msg, True, (235, 235, 235))
-        screen.blit(texte, (465, y_msg))
-        y_msg += 30
-
-    input_box = pygame.Rect(450, 530, 480, 50)
-    pygame.draw.rect(screen, (40, 55, 85), input_box)
-    pygame.draw.rect(screen, (255, 255, 255), input_box, 2)
-
-    prefix = font_chat.render("> ", True, (255, 255, 255))
-    input_surface = font_chat.render(
-        chat_input if chat_input else "Écris un message...",
-        True,
-        (255, 255, 255) if chat_input else (160, 160, 160)
-    )
-    screen.blit(prefix, (462, 542))
-    screen.blit(input_surface, (485, 542))
-
-    if est_host:
-        info = font_texte.render("Espace : lancer la partie", True, (255, 255, 255))
-    else:
-        info = font_texte.render("En attente du lancement par l'host...", True, (200, 200, 200))
-
-    screen.blit(info, info.get_rect(center=(largeur // 2, hauteur - 40)))
-
-
 # -----------------------------
 # Initialisation pseudo + réseau
 # -----------------------------
@@ -235,6 +184,8 @@ lives_manager = LivesManager()
 hud = HUD(LARGEUR)
 end_screen = EndScreen(LARGEUR, HAUTEUR)
 death_screen = DeathScreen(LARGEUR, HAUTEUR)
+lobby_menu = LobbyMenu(LARGEUR, HAUTEUR)
+lobby_menu.set_host(est_host)
 
 # Joueur local
 local_player = Player(
@@ -251,7 +202,6 @@ remote_players = {}
 
 # Chat lobby
 chat_messages = []
-chat_input = ""
 
 # En solo on démarre directement, sinon on passe par le lobby
 etat_jeu = "CENTRAL" if mode_reseau == "SOLO" else "LOBBY"
@@ -342,28 +292,20 @@ while True:
 
         # --- LOBBY ---
         if etat_jeu == "LOBBY":
-            if event.type == pygame.KEYDOWN:
-                if event.key == pygame.K_RETURN:
-                    message = chat_input.strip()
-                    if message and client:
-                        client.send({
-                            "type": "CHAT",
-                            "author": local_player.nom,
-                            "message": message
-                        })
-                    chat_input = ""
+            action, data = lobby_menu.handle_event(event)
 
-                elif est_host and event.key == pygame.K_SPACE:
-                    if client:
-                        client.send({"type": "START_GAME"})
-                    etat_jeu = "CENTRAL"
+            if action == "SEND_CHAT":
+                if client:
+                    client.send({
+                        "type": "CHAT",
+                        "author": local_player.nom,
+                        "message": data
+                    })
 
-                elif event.key == pygame.K_BACKSPACE:
-                    chat_input = chat_input[:-1]
-
-                else:
-                    if event.unicode.isprintable() and len(chat_input) < 60:
-                        chat_input += event.unicode
+            elif action == "START_GAME":
+                if client:
+                    client.send({"type": "START_GAME"})
+                etat_jeu = "CENTRAL"
 
         # --- GESTION ÉTAT : MORT ---
         elif etat_jeu == "MORT":
@@ -459,17 +401,13 @@ while True:
 
     joueurs = [local_player] + list(remote_players.values())
 
+    # Synchronisation affichage lobby
+    lobby_menu.update_players(joueurs)
+    lobby_menu.set_chat_messages(chat_messages)
+
     # --- UPDATE & DRAW ---
     if etat_jeu == "LOBBY":
-        dessiner_lobby(
-            ecran,
-            LARGEUR,
-            HAUTEUR,
-            joueurs,
-            est_host,
-            chat_messages,
-            chat_input
-        )
+        lobby_menu.draw(ecran)
 
     elif not partie_terminee:
         ecran.fill((0, 0, 0))
