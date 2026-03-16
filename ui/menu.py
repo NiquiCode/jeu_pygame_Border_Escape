@@ -1,198 +1,151 @@
 import pygame
 
+pygame.init()
 
-class LobbyMenu:
-    def __init__(self, width, height):
-        self.width = width
-        self.height = height
+WIDTH, HEIGHT = 1280, 720
+screen = pygame.display.set_mode((WIDTH, HEIGHT))
+pygame.display.set_caption("Lobby")
 
-        self.title_font = pygame.font.SysFont("arial", 80, True)
-        self.player_font = pygame.font.SysFont("arial", 28)
-        self.info_font = pygame.font.SysFont("arial", 32)
-        self.chat_font = pygame.font.SysFont(None, 26)
+clock = pygame.time.Clock()
 
-        self.players = []
-        self.chat_messages = []
-        self.chat_input = ""
-        self.is_host = False
+title_font = pygame.font.SysFont("arial", 80, True)
+player_font = pygame.font.SysFont("arial", 28)
+info_font = pygame.font.SysFont("arial", 32)
 
-    def set_host(self, is_host):
-        self.is_host = is_host
+players = ["A", "B", "C"]
 
-    def update_players(self, players):
-        self.players = players
 
-    def update_chat_input(self, value):
-        self.chat_input = value
+def draw_background():
 
-    def set_chat_messages(self, messages):
-        self.chat_messages = messages[-30:]
+    screen.fill((8,10,15))
 
-    def handle_event(self, event):
-        """
-        Retourne :
-        - ("SEND_CHAT", message)
-        - ("START_GAME", None)
-        - (None, None)
-        """
-        if event.type != pygame.KEYDOWN:
-            return None, None
+    # halo sombre derrière les portes
+    pygame.draw.circle(screen,(30,30,35),(WIDTH//2,400),520)
 
-        if event.key == pygame.K_RETURN:
-            message = self.chat_input.strip()
-            self.chat_input = ""
-            if message:
-                return "SEND_CHAT", message
-            return None, None
+    # lumière plafond
+    pygame.draw.rect(screen,(50,50,60),(WIDTH//2 - 200,70,400,12),border_radius=6)
 
-        if self.is_host and event.key == pygame.K_SPACE:
-            return "START_GAME", None
 
-        if event.key == pygame.K_BACKSPACE:
-            self.chat_input = self.chat_input[:-1]
-            return None, None
+def draw_player_count():
 
-        if event.unicode.isprintable() and len(self.chat_input) < 60:
-            self.chat_input += event.unicode
+    text = info_font.render(f"Players : {len(players)}", True, (255,255,255))
+    screen.blit(text,(20,20))
 
-        return None, None
 
-    def draw_background(self, screen):
-        screen.fill((8, 10, 15))
-        pygame.draw.circle(screen, (30, 30, 35), (self.width // 2, 400), 520)
-        pygame.draw.rect(
-            screen,
-            (50, 50, 60),
-            (self.width // 2 - 200, 70, 400, 12),
-            border_radius=6
-        )
+def draw_doors():
 
-    def draw_player_count(self, screen):
-        text = self.info_font.render(f"Players : {len(self.players)}", True, (255, 255, 255))
-        screen.blit(text, (20, 20))
+    door_width = 180
+    door_height = 300
 
-    def draw_title(self, screen):
-        title = self.title_font.render("LOBBY", True, (255, 255, 255))
-        screen.blit(title, (self.width // 2 - title.get_width() // 2, 90))
+    global door_positions
 
-    def draw_doors(self, screen):
-        door_width = 180
-        door_height = 300
+    door_positions = [
+        WIDTH//2 - 360,
+        WIDTH//2 - door_width//2,
+        WIDTH//2 + 180
+    ]
 
-        door_positions = [
-            self.width // 2 - 360,
-            self.width // 2 - door_width // 2,
-            self.width // 2 + 180
+    door_colors = [
+        (180,50,50),
+        (50,100,220),
+        (50,180,100)
+    ]
+
+    for i in range(3):
+
+        x = door_positions[i]
+
+        shadow = pygame.Rect(x+8,248,door_width,door_height)
+        pygame.draw.rect(screen,(0,0,0),shadow,border_radius=12)
+
+        door = pygame.Rect(x,240,door_width,door_height)
+        pygame.draw.rect(screen,door_colors[i],door,border_radius=12)
+
+        pygame.draw.rect(screen,(255,255,255),door,3,border_radius=12)
+
+
+def draw_dice():
+
+    size = 80
+
+    dice_colors = [
+        (200,60,60),
+        (60,120,220),
+        (60,200,120)
+    ]
+
+    for i in range(3):
+
+        # centre du dé sous la porte
+        x = door_positions[i] + 90 - size//2
+        y = 580
+
+        dice = pygame.Rect(x,y,size,size)
+
+        pygame.draw.rect(screen,dice_colors[i],dice,border_radius=12)
+        pygame.draw.rect(screen,(30,30,30),dice,3,border_radius=12)
+
+        dots = [
+            (x+20,y+20),
+            (x+60,y+20),
+            (x+20,y+60),
+            (x+60,y+60),
+            (x+40,y+40)
         ]
 
-        door_colors = [
-            (180, 50, 50),
-            (50, 100, 220),
-            (50, 180, 100)
-        ]
+        for dot in dots:
+            pygame.draw.circle(screen,(0,0,0),dot,6)
 
-        for i in range(3):
-            x = door_positions[i]
 
-            shadow = pygame.Rect(x + 8, 248, door_width, door_height)
-            pygame.draw.rect(screen, (0, 0, 0), shadow, border_radius=12)
+def draw_players():
 
-            door = pygame.Rect(x, 240, door_width, door_height)
-            pygame.draw.rect(screen, door_colors[i], door, border_radius=12)
-            pygame.draw.rect(screen, (255, 255, 255), door, 3, border_radius=12)
+    start_y = 540
 
-        return door_positions
+    for i, player in enumerate(players):
 
-    def draw_dice(self, screen, door_positions):
-        size = 80
+        y = start_y + i*40
 
-        dice_colors = [
-            (200, 60, 60),
-            (60, 120, 220),
-            (60, 200, 120)
-        ]
+        name = player_font.render(player,True,(255,255,255))
+        screen.blit(name,(80,y))
 
-        for i in range(3):
-            x = door_positions[i] + 90 - size // 2
-            y = 580
+        for v in range(10):
 
-            dice = pygame.Rect(x, y, size, size)
+            pygame.draw.circle(
+                screen,
+                (220,40,40),
+                (120 + v*14, y + 14),
+                6
+            )
 
-            pygame.draw.rect(screen, dice_colors[i], dice, border_radius=12)
-            pygame.draw.rect(screen, (30, 30, 30), dice, 3, border_radius=12)
 
-            dots = [
-                (x + 20, y + 20),
-                (x + 60, y + 20),
-                (x + 20, y + 60),
-                (x + 60, y + 60),
-                (x + 40, y + 40)
-            ]
+def draw_title():
 
-            for dot in dots:
-                pygame.draw.circle(screen, (0, 0, 0), dot, 6)
+    title = title_font.render("LOBBY",True,(255,255,255))
+    screen.blit(title,(WIDTH//2 - title.get_width()//2,90))
 
-    def draw_players_list(self, screen):
-        start_y = 540
 
-        for i, player in enumerate(self.players):
-            y = start_y + i * 40
+def draw_lobby():
 
-            name = self.player_font.render(player.nom, True, (255, 255, 255))
-            screen.blit(name, (80, y))
+    draw_background()
+    draw_player_count()
+    draw_title()
+    draw_doors()
+    draw_dice()
+    draw_players()
 
-            vies_affichees = min(player.vies, 10)
-            for v in range(vies_affichees):
-                pygame.draw.circle(
-                    screen,
-                    (220, 40, 40),
-                    (200 + v * 14, y + 14),
-                    6
-                )
 
-    def draw_chat(self, screen):
-        chat_box = pygame.Rect(780, 140, 450, 360)
-        pygame.draw.rect(screen, (30, 38, 58), chat_box)
-        pygame.draw.rect(screen, (255, 255, 255), chat_box, 2)
+running = True
 
-        chat_title = self.info_font.render("Chat", True, (255, 255, 255))
-        screen.blit(chat_title, (790, 105))
+while running:
 
-        visible_messages = self.chat_messages[-10:]
-        y_msg = 160
-        for msg in visible_messages:
-            texte = self.chat_font.render(msg, True, (235, 235, 235))
-            screen.blit(texte, (795, y_msg))
-            y_msg += 30
+    for event in pygame.event.get():
 
-        input_box = pygame.Rect(780, 530, 450, 50)
-        pygame.draw.rect(screen, (40, 55, 85), input_box)
-        pygame.draw.rect(screen, (255, 255, 255), input_box, 2)
+        if event.type == pygame.QUIT:
+            running = False
 
-        prefix = self.chat_font.render("> ", True, (255, 255, 255))
-        input_surface = self.chat_font.render(
-            self.chat_input if self.chat_input else "Écris un message...",
-            True,
-            (255, 255, 255) if self.chat_input else (160, 160, 160)
-        )
-        screen.blit(prefix, (792, 542))
-        screen.blit(input_surface, (815, 542))
+    draw_lobby()
 
-    def draw_footer(self, screen):
-        if self.is_host:
-            info = self.info_font.render("Espace : lancer la partie", True, (255, 255, 255))
-        else:
-            info = self.info_font.render("En attente du lancement par l'host...", True, (200, 200, 200))
+    pygame.display.flip()
+    clock.tick(60)
 
-        screen.blit(info, info.get_rect(center=(self.width // 2, self.height - 40)))
-
-    def draw(self, screen):
-        self.draw_background(screen)
-        self.draw_player_count(screen)
-        self.draw_title(screen)
-
-        door_positions = self.draw_doors(screen)
-        self.draw_dice(screen, door_positions)
-        self.draw_players_list(screen)
-        self.draw_chat(screen)
-        self.draw_footer(screen)
+pygame.quit()
