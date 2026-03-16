@@ -1,5 +1,5 @@
 import pygame
-import random
+from player.dice import DiceManager
 
 
 class CentralRoom:
@@ -7,6 +7,8 @@ class CentralRoom:
         self.width = screen_width
         self.height = screen_height
         self.map_manager = map_manager
+
+        self.dice_manager = DiceManager()
 
         self.table_rect = pygame.Rect(0, 0, 120, 100)
         self.table_rect.center = (screen_width // 2, screen_height // 2)
@@ -26,11 +28,15 @@ class CentralRoom:
         self.required_players = 0
         self.players_arrived_count = 0
 
+        # Résultats des dés liés aux portes
+        self.door_dice_results = []
+
         self.message = "Table (E) : Lancer les dés"
         self.font = pygame.font.Font(None, 32)
         self.font_big = pygame.font.Font(None, 40)
+        self.font_small = pygame.font.Font(None, 24)
 
-        # Cooldown pour éviter de traverser une porte 10 fois d’un coup
+        # Cooldown anti-déclenchement multiple sur une porte
         self.transition_cooldown_ms = 300
         self.last_transition_time = 0
 
@@ -43,14 +49,26 @@ class CentralRoom:
         )
 
     def roll_dice(self, total_players_in_game):
-        """Lance les dés pour définir la destination et la contrainte."""
-        tx = random.randint(0, 2)
-        ty = random.randint(0, 2)
-        self.target_coords = [tx, ty]
-        self.target_name = self.map_manager.get_coordinates_str(tx, ty)
+        """
+        Lance les dés du tour :
+        - capacité des portes
+        - salle cible
+        - nombre de joueurs requis
+        """
+        couleurs_portes = ["rouge", "bleu", "vert"]
 
-        total_players_in_game = max(1, total_players_in_game)
-        self.required_players = random.randint(1, total_players_in_game)
+        result = self.dice_manager.lancer_systeme_des(
+            total_players_in_game,
+            couleurs_portes
+        )
+
+        self.door_dice_results = result["portes"]
+        self.target_coords = result["salle_cible"]
+        self.required_players = result["joueurs_requis"]
+        self.target_name = self.map_manager.get_coordinates_str(
+            self.target_coords[0],
+            self.target_coords[1]
+        )
 
         self.dice_rolled = True
         self.players_arrived_count = 0
@@ -66,7 +84,10 @@ class CentralRoom:
         """Appelé après une réussite d'énigme."""
         self.dice_rolled = False
         self.target_coords = None
+        self.target_name = ""
+        self.required_players = 0
         self.players_arrived_count = 0
+        self.door_dice_results = []
         self.update_message()
 
     def check_doors_availability(self):
@@ -103,11 +124,9 @@ class CentralRoom:
 
         for direction, rect in self.doors.items():
             if direction in available_doors and player_rect.colliderect(rect):
-                # Cooldown anti multi-détection
                 if current_time - self.last_transition_time < self.transition_cooldown_ms:
                     return "CENTRAL"
 
-                # Le joueur franchit une porte -> PERD 1 VIE
                 current_player_obj.perdre_vie()
                 print(f"-1 Vie pour déplacement. Reste: {current_player_obj.vies}")
 
@@ -116,7 +135,6 @@ class CentralRoom:
                 if moved:
                     self.last_transition_time = current_time
 
-                    # Repositionnement visuel du vrai joueur
                     if direction == "HAUT":
                         current_player_obj.y = self.height - current_player_obj.height - 40
                     elif direction == "BAS":
@@ -128,11 +146,9 @@ class CentralRoom:
 
                     current_pos = self.map_manager.player_pos
 
-                    # 1. Sortie
                     if current_pos == self.map_manager.exit_pos and self.map_manager.exit_revealed:
                         return "FIN_DU_JEU"
 
-                    # 2. Salle cible
                     if self.dice_rolled and current_pos == self.target_coords:
                         self.players_arrived_count += 1
                         print(
@@ -155,7 +171,6 @@ class CentralRoom:
         return "CENTRAL"
 
     def draw(self, screen):
-        # Fond couleur salle
         room_color = self.map_manager.get_current_room_color()
         bg_color = (
             room_color[0] // 2,
@@ -173,7 +188,7 @@ class CentralRoom:
         pygame.draw.rect(screen, (100, 60, 20), self.table_rect)
         pygame.draw.rect(screen, (200, 200, 200), self.table_rect, 2)
 
-        # Message info
+        # Message principal
         text = self.font.render(self.message, True, (255, 255, 255))
         screen.blit(text, (self.width // 2 - text.get_width() // 2, self.height // 2 - 80))
 
@@ -185,3 +200,17 @@ class CentralRoom:
         lbl = self.font_big.render(coord_txt, True, (255, 255, 255))
         lbl.set_alpha(100)
         screen.blit(lbl, (50, 50))
+
+        # Affichage des résultats de dés des portes
+        if self.dice_rolled and self.door_dice_results:
+            y = self.height - 110
+            x = 40
+
+            for resultat in self.door_dice_results:
+                txt = self.font_small.render(
+                    f"{resultat['couleur']} : dé={resultat['resultat_de']} | cap={resultat['capacite']}",
+                    True,
+                    (255, 255, 255)
+                )
+                screen.blit(txt, (x, y))
+                y += 24
