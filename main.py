@@ -27,6 +27,8 @@ font_joueur = pygame.font.SysFont(None, 24)
 font_titre = pygame.font.SysFont(None, 52)
 font_texte = pygame.font.SysFont(None, 36)
 font_input = pygame.font.SysFont(None, 42)
+font_loading = pygame.font.SysFont(None, 48)
+font_loading_small = pygame.font.SysFont(None, 28)
 
 
 def demander_pseudo(screen, clock, largeur, hauteur):
@@ -156,6 +158,43 @@ def demander_ip(screen, clock, largeur, hauteur):
         clock.tick(60)
 
 
+def dessiner_loading(screen, largeur, hauteur, elapsed_ms):
+    screen.fill((12, 18, 30))
+
+    titre = font_loading.render("Chargement de la partie...", True, (255, 255, 255))
+    sous_titre = font_loading_small.render("Préparation de l'exploration", True, (210, 210, 210))
+
+    screen.blit(titre, titre.get_rect(center=(largeur // 2, hauteur // 2 - 60)))
+    screen.blit(sous_titre, sous_titre.get_rect(center=(largeur // 2, hauteur // 2 - 20)))
+
+    bar_width = 420
+    bar_height = 26
+    bar_x = largeur // 2 - bar_width // 2
+    bar_y = hauteur // 2 + 30
+
+    pygame.draw.rect(screen, (45, 55, 80), (bar_x, bar_y, bar_width, bar_height), border_radius=8)
+    pygame.draw.rect(screen, (255, 255, 255), (bar_x, bar_y, bar_width, bar_height), 2, border_radius=8)
+
+    progression = min(1.0, elapsed_ms / 1600.0)
+    fill_width = int((bar_width - 6) * progression)
+    pygame.draw.rect(screen, (80, 170, 120), (bar_x + 3, bar_y + 3, fill_width, bar_height - 6), border_radius=6)
+
+
+def demarrer_loading():
+    global etat_jeu, loading_start_time
+    etat_jeu = "LOADING"
+    loading_start_time = pygame.time.get_ticks()
+
+
+def initialiser_partie():
+    global etat_jeu, puzzle_actif, partie_terminee
+    map_manager.generate_new_map()
+    central_room.reset_round()
+    puzzle_actif = None
+    partie_terminee = False
+    etat_jeu = "CENTRAL"
+
+
 # -----------------------------
 # Initialisation pseudo + réseau
 # -----------------------------
@@ -197,6 +236,9 @@ local_player = Player(
     y=360
 )
 
+# Optionnel mais utile
+local_player.is_host = est_host
+
 # Joueurs distants indexés par ID
 remote_players = {}
 
@@ -205,6 +247,19 @@ chat_messages = []
 
 # En solo on démarre directement, sinon on passe par le lobby
 etat_jeu = "CENTRAL" if mode_reseau == "SOLO" else "LOBBY"
+loading_start_time = None
+
+# Gameplay
+map_manager = MapManager()
+
+# IMPORTANT :
+# Ce main suppose que ton CentralRoom accepte maintenant un 4e paramètre optionnel client=None
+central_room = CentralRoom(LARGEUR, HAUTEUR, map_manager, client)
+
+minimap = Minimap(LARGEUR, HAUTEUR, map_manager)
+
+puzzle_actif = None
+partie_terminee = False
 
 
 def update_remote_player(data):
@@ -225,6 +280,9 @@ def update_remote_player(data):
 
     remote_players[player_id].update_from_dict(data)
 
+    if "is_host" in data:
+        remote_players[player_id].is_host = data["is_host"]
+
 
 def remplacer_liste_joueurs(players_data):
     anciens_joueurs = {}
@@ -234,13 +292,16 @@ def remplacer_liste_joueurs(players_data):
             "x": player.x,
             "y": player.y,
             "score": player.score,
-            "vies": player.vies
+            "vies": player.vies,
+            "facing_right": getattr(player, "facing_right", True),
+            "is_host": getattr(player, "is_host", False)
         }
 
     remote_players.clear()
 
     for player_data in players_data:
         if player_data["id"] == local_player.player_id:
+            local_player.is_host = player_data.get("is_host", local_player.is_host)
             continue
 
         joueur = Player(
@@ -258,7 +319,22 @@ def remplacer_liste_joueurs(players_data):
             joueur.y = etat["y"]
             joueur.score = etat["score"]
             joueur.vies = etat["vies"]
+            if hasattr(joueur, "facing_right"):
+                joueur.facing_right = etat["facing_right"]
+            joueur.is_host = etat["is_host"]
 
+        if "x" in player_data:
+            joueur.x = player_data["x"]
+        if "y" in player_data:
+            joueur.y = player_data["y"]
+        if "score" in player_data:
+            joueur.score = player_data["score"]
+        if "vies" in player_data:
+            joueur.vies = player_data["vies"]
+        if "facing_right" in player_data and hasattr(joueur, "facing_right"):
+            joueur.facing_right = player_data["facing_right"]
+
+        joueur.is_host = player_data.get("is_host", getattr(joueur, "is_host", False))
         remote_players[player_data["id"]] = joueur
 
 
@@ -267,16 +343,12 @@ if client:
         "type": "JOIN",
         "id": local_player.player_id,
         "nom": local_player.nom,
-        "couleur": list(local_player.couleur)
+        "couleur": list(local_player.couleur),
+        "x": local_player.x,
+        "y": local_player.y,
+        "score": local_player.score,
+        "vies": local_player.vies
     })
-
-# Gameplay
-map_manager = MapManager()
-central_room = CentralRoom(LARGEUR, HAUTEUR, map_manager)
-minimap = Minimap(LARGEUR, HAUTEUR, map_manager)
-
-puzzle_actif = None
-partie_terminee = False
 
 while True:
     joueur_actif = local_player
@@ -301,11 +373,15 @@ while True:
                         "author": local_player.nom,
                         "message": data
                     })
+                else:
+                    chat_messages.append(f"{local_player.nom} : {data}")
+                    chat_messages = chat_messages[-30:]
 
             elif action == "START_GAME":
                 if client:
                     client.send({"type": "START_GAME"})
-                etat_jeu = "CENTRAL"
+                else:
+                    demarrer_loading()
 
         # --- GESTION ÉTAT : MORT ---
         elif etat_jeu == "MORT":
@@ -356,8 +432,19 @@ while True:
             if msg_type == "PLAYER_LIST":
                 remplacer_liste_joueurs(message.get("players", []))
 
+                # Met à jour le host côté local si l'info arrive
+                for pdata in message.get("players", []):
+                    if pdata.get("id") == local_player.player_id:
+                        local_player.is_host = pdata.get("is_host", local_player.is_host)
+                        lobby_menu.set_host(local_player.is_host)
+                        break
+
+                if message.get("game_started", False) and etat_jeu == "LOBBY":
+                    demarrer_loading()
+
             elif msg_type == "START_GAME":
-                etat_jeu = "CENTRAL"
+                if etat_jeu == "LOBBY":
+                    demarrer_loading()
 
             elif msg_type == "PLAYER_STATE":
                 update_remote_player(message)
@@ -368,16 +455,47 @@ while True:
                 chat_messages.append(f"{auteur} : {texte}")
                 chat_messages = chat_messages[-30:]
 
+            elif msg_type == "DICE_RESULT":
+                # IMPORTANT :
+                # suppose que CentralRoom possède apply_dice_result(message)
+                central_room.apply_dice_result(message)
+
+            elif msg_type == "MOVE":
+                # Avec ton MapManager actuel, on ne déplace que la position logique du joueur local
+                if message.get("id") == local_player.player_id:
+                    map_manager.move_player(message.get("dir"))
+
+    # Déplacement dans le lobby (si ton ui/menu.py possède update())
+    if etat_jeu == "LOBBY":
+        if hasattr(lobby_menu, "update"):
+            lobby_menu.update()
+
+    # État de chargement
+    elif etat_jeu == "LOADING":
+        now = pygame.time.get_ticks()
+        if loading_start_time is None:
+            loading_start_time = now
+
+        if now - loading_start_time >= 1600:
+            initialiser_partie()
+
     # Déplacement uniquement du joueur local
-    if etat_jeu == "CENTRAL" and not partie_terminee:
+    elif etat_jeu == "CENTRAL" and not partie_terminee:
         touches = pygame.key.get_pressed()
 
         if touches[pygame.K_LEFT] or touches[pygame.K_q]:
             local_player.x -= local_player.speed
+            if hasattr(local_player, "facing_right"):
+                local_player.facing_right = False
+
         if touches[pygame.K_RIGHT] or touches[pygame.K_d]:
             local_player.x += local_player.speed
+            if hasattr(local_player, "facing_right"):
+                local_player.facing_right = True
+
         if touches[pygame.K_UP] or touches[pygame.K_z]:
             local_player.y -= local_player.speed
+
         if touches[pygame.K_DOWN] or touches[pygame.K_s]:
             local_player.y += local_player.speed
 
@@ -387,8 +505,8 @@ while True:
     # -----------------------------
     # Envoi état local
     # -----------------------------
-    if client and etat_jeu == "CENTRAL":
-        client.send({
+    if client and etat_jeu in ("LOBBY", "CENTRAL"):
+        payload = {
             "type": "PLAYER_STATE",
             "id": local_player.player_id,
             "nom": local_player.nom,
@@ -396,8 +514,14 @@ while True:
             "y": local_player.y,
             "score": local_player.score,
             "vies": local_player.vies,
-            "couleur": list(local_player.couleur)
-        })
+            "couleur": list(local_player.couleur),
+            "is_host": getattr(local_player, "is_host", est_host)
+        }
+
+        if hasattr(local_player, "facing_right"):
+            payload["facing_right"] = local_player.facing_right
+
+        client.send(payload)
 
     joueurs = [local_player] + list(remote_players.values())
 
@@ -408,6 +532,10 @@ while True:
     # --- UPDATE & DRAW ---
     if etat_jeu == "LOBBY":
         lobby_menu.draw(ecran)
+
+    elif etat_jeu == "LOADING":
+        elapsed = pygame.time.get_ticks() - loading_start_time if loading_start_time else 0
+        dessiner_loading(ecran, LARGEUR, HAUTEUR, elapsed)
 
     elif not partie_terminee:
         ecran.fill((0, 0, 0))

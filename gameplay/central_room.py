@@ -3,10 +3,11 @@ from player.dice import DiceManager
 
 
 class CentralRoom:
-    def __init__(self, screen_width, screen_height, map_manager):
+    def __init__(self, screen_width, screen_height, map_manager, client=None):
         self.width = screen_width
         self.height = screen_height
         self.map_manager = map_manager
+        self.client = client
 
         self.dice_manager = DiceManager()
 
@@ -74,6 +75,38 @@ class CentralRoom:
         self.players_arrived_count = 0
         self.update_message()
 
+    def apply_dice_result(self, data):
+        """
+        Applique un résultat de dés reçu du réseau.
+        Compatible avec un message du type :
+        {
+            "type": "DICE_RESULT",
+            "portes": [...],
+            "salle_cible": [x, y],
+            "joueurs_requis": n
+        }
+        ou variantes target / required.
+        """
+        self.door_dice_results = data.get("portes", data.get("door_dice_results", []))
+
+        salle_cible = data.get("salle_cible", data.get("target"))
+        if salle_cible is not None:
+            self.target_coords = tuple(salle_cible)
+
+        self.required_players = data.get("joueurs_requis", data.get("required", 0))
+
+        if self.target_coords is not None:
+            self.target_name = self.map_manager.get_coordinates_str(
+                self.target_coords[0],
+                self.target_coords[1]
+            )
+        else:
+            self.target_name = ""
+
+        self.dice_rolled = self.target_coords is not None
+        self.players_arrived_count = 0
+        self.update_message()
+
     def update_message(self):
         if not self.dice_rolled:
             self.message = "Table (E) : Lancer les dés"
@@ -105,6 +138,31 @@ class CentralRoom:
 
         return available
 
+    def _send_roll_dice_request(self, total_players_in_game):
+        """
+        Si un client réseau existe, on demande au serveur de lancer les dés.
+        Sinon, on lance localement.
+        """
+        if self.client:
+            self.client.send({
+                "type": "ROLL_DICE",
+                "players": total_players_in_game
+            })
+        else:
+            self.roll_dice(total_players_in_game)
+
+    def _send_move_request(self, current_player_obj, direction):
+        """
+        Si un client réseau existe, on signale le déplacement au serveur.
+        Sinon, le déplacement reste local.
+        """
+        if self.client:
+            self.client.send({
+                "type": "MOVE",
+                "id": current_player_obj.player_id,
+                "dir": direction
+            })
+
     def update(self, current_player_obj, total_players_in_game=1):
         """
         current_player_obj : objet Player local
@@ -116,7 +174,7 @@ class CentralRoom:
         # --- TABLE (Lancer les dés) ---
         if player_rect.colliderect(self.table_rect):
             if keys[pygame.K_e] and not self.dice_rolled:
-                self.roll_dice(total_players_in_game)
+                self._send_roll_dice_request(total_players_in_game)
 
         # --- PORTES (Déplacement) ---
         available_doors = self.check_doors_availability()
@@ -135,21 +193,27 @@ class CentralRoom:
                 if moved:
                     self.last_transition_time = current_time
 
+                    self._send_move_request(current_player_obj, direction)
+
                     if direction == "HAUT":
                         current_player_obj.y = self.height - current_player_obj.height - 40
                     elif direction == "BAS":
                         current_player_obj.y = 40
                     elif direction == "GAUCHE":
                         current_player_obj.x = self.width - current_player_obj.width - 40
+                        if hasattr(current_player_obj, "facing_right"):
+                            current_player_obj.facing_right = False
                     elif direction == "DROITE":
                         current_player_obj.x = 40
+                        if hasattr(current_player_obj, "facing_right"):
+                            current_player_obj.facing_right = True
 
                     current_pos = self.map_manager.player_pos
 
                     if current_pos == self.map_manager.exit_pos and self.map_manager.exit_revealed:
                         return "FIN_DU_JEU"
 
-                    if self.dice_rolled and current_pos == self.target_coords:
+                    if self.dice_rolled and current_pos == list(self.target_coords):
                         self.players_arrived_count += 1
                         print(
                             f"Arrivé cible ! Compteur: "

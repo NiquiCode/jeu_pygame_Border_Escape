@@ -80,6 +80,7 @@ class LivesManager:
     def reset_joueur(self, joueur):
         """Remet le joueur à l'état de départ."""
         joueur.vies = self.max_vies
+        joueur.score = getattr(joueur, "score", 0)
         joueur.score = 0
         self._clamp_vies(joueur)
 
@@ -109,19 +110,15 @@ class LivesManager:
         """
         salle_actuelle = salles[index_salle]
 
-        # La règle ne s'applique que si la salle a exactement 1 joueur
         if not self.joueur_est_seul(salle_actuelle):
             return False
 
         salle_gauche = salles[index_salle - 1] if index_salle > 0 else None
         salle_droite = salles[index_salle + 1] if index_salle < len(salles) - 1 else None
 
-        # Si on est au bord et qu'il manque une salle adjacente,
-        # on considère qu'il reste bloqué
         if salle_gauche is None or salle_droite is None:
             return True
 
-        # Libéré seulement si gauche ET droite sont occupées
         if self.salle_occupee(salle_gauche) and self.salle_occupee(salle_droite):
             return False
 
@@ -152,20 +149,16 @@ class LivesManager:
         width = 300
         height = 95
 
-        # Fond principal
         fond_rect = pygame.Rect(x_pos, y_pos, width, height)
         pygame.draw.rect(ecran, self.GRIS, fond_rect, border_radius=12)
         pygame.draw.rect(ecran, self.GRIS_BORD, fond_rect, 2, border_radius=12)
 
-        # Titre
         texte_titre = self.police_titre.render("Vies", True, self.BLANC)
         ecran.blit(texte_titre, (x_pos + 12, y_pos + 8))
 
-        # Nom du joueur
         texte_nom = self.police_normale.render(joueur.nom, True, self.BLANC)
         ecran.blit(texte_nom, (x_pos + 12, y_pos + 40))
 
-        # Valeur numérique
         vies_affichees = max(0, min(joueur.vies, self.max_vies))
         texte_chiffre = self.police_normale.render(
             f"{vies_affichees}/{self.max_vies}",
@@ -174,7 +167,6 @@ class LivesManager:
         )
         ecran.blit(texte_chiffre, (x_pos + width - 75, y_pos + 40))
 
-        # Cœurs
         x_coeur = x_pos + 12
         y_coeur = y_pos + 67
 
