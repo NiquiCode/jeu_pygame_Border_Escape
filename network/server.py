@@ -16,6 +16,8 @@ class GameServer:
         self.lock = threading.Lock()
         self.host_socket = None
         self.game_started = False
+        self.map_data = None
+        self.last_dice_result = None
 
     def start_server(self):
         self.server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -55,11 +57,10 @@ class GameServer:
         while self.running:
             try:
                 data = client_socket.recv(4096)
-
                 if not data:
                     break
 
-                buffer += data.decode()
+                buffer += data.decode("utf-8")
 
                 while "\n" in buffer:
                     line, buffer = buffer.split("\n", 1)
@@ -94,7 +95,9 @@ class GameServer:
                     "y": message.get("y", 360),
                     "score": message.get("score", 0),
                     "vies": message.get("vies", 10),
-                    "is_host": is_host
+                    "facing_right": message.get("facing_right", True),
+                    "is_host": is_host,
+                    "room_pos": message.get("room_pos", [1, 1]),
                 }
 
                 self.players[client_socket] = player_data
@@ -104,6 +107,18 @@ class GameServer:
             if self.game_started:
                 try:
                     client_socket.sendall(encode_message({"type": "START_GAME"}))
+
+                    if self.map_data is not None:
+                        client_socket.sendall(
+                            encode_message({
+                                "type": "MAP_DATA",
+                                "map_data": self.map_data,
+                            })
+                        )
+
+                    if self.last_dice_result is not None:
+                        client_socket.sendall(encode_message(self.last_dice_result))
+
                 except Exception:
                     self.remove_client(client_socket)
 
@@ -111,20 +126,50 @@ class GameServer:
             with self.lock:
                 if client_socket != self.host_socket:
                     return
+
                 self.game_started = True
+                self.last_dice_result = None
 
             self.broadcast({"type": "START_GAME"})
+
+        elif msg_type == "MAP_DATA":
+            with self.lock:
+                if client_socket != self.host_socket:
+                    return
+
+                self.map_data = message.get("map_data")
+
+            self.broadcast({
+                "type": "MAP_DATA",
+                "map_data": self.map_data,
+            })
+
+        elif msg_type == "DICE_RESULT":
+            with self.lock:
+                if client_socket != self.host_socket:
+                    return
+
+                self.last_dice_result = {
+                    "type": "DICE_RESULT",
+                    "portes": message.get("portes", []),
+                    "salle_cible": message.get("salle_cible"),
+                    "joueurs_requis": message.get("joueurs_requis", 0),
+                }
+
+            self.broadcast(self.last_dice_result)
 
         elif msg_type == "PLAYER_STATE":
             with self.lock:
                 if client_socket in self.players:
-                    self.players[client_socket]["x"] = message.get("x", self.players[client_socket]["x"])
-                    self.players[client_socket]["y"] = message.get("y", self.players[client_socket]["y"])
-                    self.players[client_socket]["score"] = message.get("score", self.players[client_socket]["score"])
-                    self.players[client_socket]["vies"] = message.get("vies", self.players[client_socket]["vies"])
-                    self.players[client_socket]["couleur"] = message.get("couleur", self.players[client_socket]["couleur"])
-                    self.players[client_socket]["nom"] = message.get("nom", self.players[client_socket]["nom"])
-                    self.players[client_socket]["facing_right"] = message.get("facing_right", True)
+                    pdata = self.players[client_socket]
+                    pdata["x"] = message.get("x", pdata["x"])
+                    pdata["y"] = message.get("y", pdata["y"])
+                    pdata["score"] = message.get("score", pdata["score"])
+                    pdata["vies"] = message.get("vies", pdata["vies"])
+                    pdata["couleur"] = message.get("couleur", pdata["couleur"])
+                    pdata["nom"] = message.get("nom", pdata["nom"])
+                    pdata["facing_right"] = message.get("facing_right", pdata["facing_right"])
+                    pdata["room_pos"] = message.get("room_pos", pdata["room_pos"])
 
             self.broadcast(message, exclude=client_socket)
 
@@ -144,7 +189,7 @@ class GameServer:
         self.broadcast({
             "type": "PLAYER_LIST",
             "players": player_list,
-            "game_started": self.game_started
+            "game_started": self.game_started,
         })
 
     def broadcast(self, message, exclude=None):
@@ -162,8 +207,8 @@ class GameServer:
             except Exception:
                 dead_clients.append(client)
 
-        for dead in dead_clients:
-            self.remove_client(dead)
+        for dead_client in dead_clients:
+            self.remove_client(dead_client)
 
     def remove_client(self, client_socket):
         with self.lock:
@@ -178,6 +223,8 @@ class GameServer:
 
             if len(self.players) == 0:
                 self.game_started = False
+                self.map_data = None
+                self.last_dice_result = None
 
         try:
             client_socket.close()
@@ -195,6 +242,8 @@ class GameServer:
             self.players.clear()
             self.host_socket = None
             self.game_started = False
+            self.map_data = None
+            self.last_dice_result = None
 
         for client in clients_copy:
             try:
