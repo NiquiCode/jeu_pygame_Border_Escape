@@ -26,7 +26,6 @@ class CentralRoom:
         self.target_coords = None
         self.target_name = ""
         self.required_players = 0
-        self.players_arrived_count = 0
         self.door_dice_results = []
 
         self.message = "Table (E) : Lancer les dés"
@@ -39,10 +38,6 @@ class CentralRoom:
 
         self.interaction_cooldown_ms = 250
         self.last_interaction_time = 0
-
-        # Anti double-comptage local :
-        # évite qu'un même joueur re-compte plusieurs fois dans la même manche
-        self.local_player_registered_for_target = False
 
     def _get_player_rect(self, current_player_obj):
         return pygame.Rect(
@@ -76,9 +71,7 @@ class CentralRoom:
         self.target_coords = None
         self.target_name = ""
         self.required_players = 0
-        self.players_arrived_count = 0
         self.door_dice_results = []
-        self.local_player_registered_for_target = False
         self.update_message()
 
     def check_doors_availability(self):
@@ -117,8 +110,6 @@ class CentralRoom:
             self.target_name = ""
 
         self.dice_rolled = self.target_coords is not None
-        self.players_arrived_count = 0
-        self.local_player_registered_for_target = False
         self.update_message()
 
         return result
@@ -144,8 +135,6 @@ class CentralRoom:
             self.target_name = ""
             self.dice_rolled = False
 
-        self.players_arrived_count = 0
-        self.local_player_registered_for_target = False
         self.update_message()
 
     def _send_dice_result_to_network(self, result):
@@ -160,12 +149,6 @@ class CentralRoom:
         })
 
     def _try_roll_dice(self, total_players_in_game, can_roll_dice):
-        """
-        can_roll_dice :
-        - True en solo
-        - True pour le host
-        - False pour un client join
-        """
         if self.dice_rolled:
             self.update_message()
             return
@@ -198,22 +181,18 @@ class CentralRoom:
             if hasattr(current_player_obj, "facing_right"):
                 current_player_obj.facing_right = True
 
-    def _handle_target_room_arrival(self, current_pos):
+    def _handle_target_room_arrival(self, current_pos, players_in_same_room):
         if not self.dice_rolled or self.target_coords is None:
             self.update_message()
             return "CENTRAL"
 
         if current_pos == list(self.target_coords):
-            if not self.local_player_registered_for_target:
-                self.local_player_registered_for_target = True
-                self.players_arrived_count += 1
-
-            if self.players_arrived_count >= self.required_players:
+            if players_in_same_room >= self.required_players:
                 return "LANCER_ENIGME"
 
             self.message = (
                 f"En attente... "
-                f"({self.players_arrived_count}/{self.required_players} joueurs)"
+                f"({players_in_same_room}/{self.required_players} joueurs)"
             )
             return "CENTRAL"
 
@@ -249,22 +228,29 @@ class CentralRoom:
             if current_pos == self.map_manager.exit_pos and self.map_manager.exit_revealed:
                 return "FIN_DU_JEU"
 
-            return self._handle_target_room_arrival(current_pos)
+            return "CENTRAL"
 
         return "CENTRAL"
 
     def update(self, current_player_obj, total_players_in_game=1, can_roll_dice=True):
         player_rect = self._get_player_rect(current_player_obj)
 
-        # Gestion interaction table / dés
         self._handle_table_interaction(
             player_rect,
             total_players_in_game,
             can_roll_dice
         )
 
-        # Gestion portes / déplacements de salle
-        return self._handle_doors(current_player_obj)
+        door_result = self._handle_doors(current_player_obj)
+        if door_result == "FIN_DU_JEU":
+            return "FIN_DU_JEU"
+
+        current_pos = self.map_manager.player_pos
+        target_result = self._handle_target_room_arrival(current_pos, total_players_in_game)
+        if target_result == "LANCER_ENIGME":
+            return "LANCER_ENIGME"
+
+        return "CENTRAL"
 
     def draw(self, screen):
         room_color = self.map_manager.get_current_room_color()
@@ -275,7 +261,6 @@ class CentralRoom:
         )
         screen.fill(bg_color)
 
-        # Carreaux au sol
         tile_size = 50
         for x in range(0, self.width, tile_size):
             for y in range(0, self.height, tile_size):

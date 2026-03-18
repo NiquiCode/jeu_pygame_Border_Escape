@@ -224,6 +224,34 @@ def initialiser_partie():
         etat_jeu = "CENTRAL"
 
 
+def meme_salle(room_a, room_b):
+    return list(room_a) == list(room_b)
+
+
+def get_joueurs_meme_salle():
+    salle_locale = map_manager.player_pos[:]
+    joueurs_meme_salle = [local_player]
+
+    for joueur in remote_players.values():
+        room_pos = getattr(joueur, "room_pos", None)
+        if room_pos is not None and meme_salle(room_pos, salle_locale):
+            joueurs_meme_salle.append(joueur)
+
+    return joueurs_meme_salle
+
+
+def draw_remote_players_same_room(screen, font):
+    salle_locale = map_manager.player_pos[:]
+
+    for joueur in remote_players.values():
+        room_pos = getattr(joueur, "room_pos", None)
+        if room_pos is None:
+            continue
+        if not meme_salle(room_pos, salle_locale):
+            continue
+        joueur.draw(screen, font, actif=False)
+
+
 def update_remote_player(data):
     player_id = data["id"]
 
@@ -498,6 +526,8 @@ while True:
                 central_room.apply_dice_result(message)
 
     joueurs = [local_player] + list(remote_players.values())
+    joueurs_meme_salle = get_joueurs_meme_salle()
+
     lobby_menu.update_players(joueurs)
     lobby_menu.set_chat_messages(chat_messages)
 
@@ -539,7 +569,7 @@ while True:
 
         result = central_room.update(
             local_player,
-            len(joueurs),
+            len(joueurs_meme_salle),
             can_roll_dice=(mode_reseau == "SOLO" or est_host)
         )
 
@@ -583,8 +613,7 @@ while True:
             central_room.draw(ecran)
 
             local_player.draw(ecran, font_joueur, actif=True)
-            for joueur in remote_players.values():
-                joueur.draw(ecran, font_joueur, actif=False)
+            draw_remote_players_same_room(ecran, font_joueur)
 
         elif etat_jeu == "ENIGME" and puzzle_actif:
             puzzle_actif.draw(ecran)
@@ -592,8 +621,7 @@ while True:
         elif etat_jeu == "MORT":
             central_room.draw(ecran)
             local_player.draw(ecran, font_joueur, actif=True)
-            for joueur in remote_players.values():
-                joueur.draw(ecran, font_joueur, actif=False)
+            draw_remote_players_same_room(ecran, font_joueur)
             death_screen.draw(ecran)
 
         if etat_jeu != "MORT":
