@@ -14,6 +14,7 @@ from ui.death_screen import DeathScreen
 from ui.menu import LobbyMenu
 from network.server import GameServer
 from network.client import GameClient
+from world.world_manager import WorldManager # NOUVEAU : Import du monde
 
 print("MAIN VERSION CORRIGEE")
 print(__file__)
@@ -78,6 +79,42 @@ def demander_pseudo(screen, clock, largeur, hauteur):
         screen.blit(titre, titre_rect)
         screen.blit(instruction, instruction_rect)
         screen.blit(texte_surface, texte_rect)
+
+        pygame.display.flip()
+        clock.tick(60)
+
+
+# NOUVEAU : Fonction pour choisir le personnage
+def demander_personnage(screen, clock, largeur, hauteur):
+    persos = ["assets/perso1.png", "assets/perso2.png", "assets/perso3.png"]
+    images = []
+    for p in persos:
+        try:
+            img = pygame.image.load(p).convert_alpha()
+            images.append(pygame.transform.scale(img, (100, 100)))
+        except:
+            surf = pygame.Surface((100, 100))
+            surf.fill((255, 0, 255))
+            images.append(surf)
+
+    while True:
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                pygame.quit()
+                sys.exit()
+            if event.type == pygame.MOUSEBUTTONDOWN:
+                mx, my = pygame.mouse.get_pos()
+                for i in range(3):
+                    rect = pygame.Rect(largeur // 2 - 200 + i * 150, hauteur // 2, 100, 100)
+                    if rect.collidepoint((mx, my)):
+                        return persos[i]
+
+        screen.fill((15, 20, 35))
+        titre = font_titre.render("Choisis ton personnage", True, (255, 255, 255))
+        screen.blit(titre, titre.get_rect(center=(largeur // 2, hauteur // 2 - 100)))
+
+        for i, img in enumerate(images):
+            screen.blit(img, (largeur // 2 - 200 + i * 150, hauteur // 2))
 
         pygame.display.flip()
         clock.tick(60)
@@ -201,8 +238,6 @@ def demarrer_loading():
 def initialiser_partie():
     global etat_jeu, puzzle_actif, partie_terminee, map_loaded
 
-    print("initialiser_partie OK - build_map_data utilise")
-
     if mode_reseau == "SOLO":
         map_manager.generate_new_map()
         map_loaded = True
@@ -265,7 +300,8 @@ def update_remote_player(data):
             player_id=player_id,
             is_local=False,
             x=data.get("x", 100),
-            y=data.get("y", 100)
+            y=data.get("y", 100),
+            image_path=data.get("image_path") # NOUVEAU
         )
 
     joueur = remote_players[player_id]
@@ -284,7 +320,8 @@ def remplacer_liste_joueurs(players_data):
             "vies": p.vies,
             "facing_right": getattr(p, "facing_right", True),
             "is_host": getattr(p, "is_host", False),
-            "room_pos": getattr(p, "room_pos", [1, 1])
+            "room_pos": getattr(p, "room_pos", [1, 1]),
+            "image_path": getattr(p, "image_path", None) # NOUVEAU
         }
 
     remote_players.clear()
@@ -300,7 +337,8 @@ def remplacer_liste_joueurs(players_data):
             player_id=pdata["id"],
             is_local=False,
             x=pdata.get("x", 100),
-            y=pdata.get("y", 100)
+            y=pdata.get("y", 100),
+            image_path=pdata.get("image_path") # NOUVEAU
         )
 
         if pdata["id"] in anciens:
@@ -351,6 +389,7 @@ def deplacer_joueur_dans_lobby():
 
 
 pseudo_joueur = demander_pseudo(ecran, horloge, LARGEUR, HAUTEUR)
+image_perso = demander_personnage(ecran, horloge, LARGEUR, HAUTEUR) # NOUVEAU
 mode_reseau = demander_mode_reseau(ecran, horloge, LARGEUR, HAUTEUR)
 
 server = None
@@ -376,13 +415,18 @@ end_screen = EndScreen(LARGEUR, HAUTEUR)
 death_screen = DeathScreen(LARGEUR, HAUTEUR)
 lobby_menu = LobbyMenu(LARGEUR, HAUTEUR)
 
+# NOUVEAU : On génère le sol du monde !
+world_manager = WorldManager()
+world_manager.generate_world()
+
 local_player = Player(
     pseudo_joueur,
     (52, 152, 219),
     player_id=f"{pseudo_joueur}_{pygame.time.get_ticks()}",
     is_local=True,
     x=220,
-    y=360
+    y=360,
+    image_path=image_perso # NOUVEAU : Application de l'image
 )
 local_player.is_host = est_host
 
@@ -414,7 +458,8 @@ if client:
         "score": local_player.score,
         "vies": local_player.vies,
         "facing_right": local_player.facing_right,
-        "room_pos": map_manager.player_pos[:]
+        "room_pos": map_manager.player_pos[:],
+        "image_path": local_player.image_path # NOUVEAU
     })
 
 while True:
@@ -595,7 +640,8 @@ while True:
             "couleur": list(local_player.couleur),
             "is_host": est_host,
             "facing_right": getattr(local_player, "facing_right", True),
-            "room_pos": map_manager.player_pos[:]
+            "room_pos": map_manager.player_pos[:],
+            "image_path": getattr(local_player, "image_path", None) # NOUVEAU
         }
         client.send(payload)
 
@@ -607,7 +653,8 @@ while True:
         dessiner_loading(ecran, LARGEUR, HAUTEUR, elapsed)
 
     elif not partie_terminee:
-        ecran.fill((0, 0, 0))
+        # NOUVEAU : On dessine le sol de la grotte !
+        world_manager.draw(ecran)
 
         if etat_jeu == "CENTRAL":
             central_room.draw(ecran)
