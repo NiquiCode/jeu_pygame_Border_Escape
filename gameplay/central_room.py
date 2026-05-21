@@ -259,7 +259,7 @@ class CentralRoom:
             max(0, room_color[1] // 2),
             max(0, room_color[2] // 2)
         )
-        screen.fill(bg_color)
+        #screen.fill(bg_color)
 
         tile_size = 50
         for x in range(0, self.width, tile_size):
@@ -275,7 +275,7 @@ class CentralRoom:
                 else:
                     color = bg_color
 
-                pygame.draw.rect(screen, color, rect)
+                #pygame.draw.rect(screen, color, rect)
 
         available = self.check_doors_availability()
         for direction in available:
