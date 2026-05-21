@@ -88,7 +88,7 @@ def demander_pseudo(screen, clock, largeur, hauteur):
 def demander_personnage(screen, clock, largeur, hauteur):
     persos = ["assets/perso1.png", "assets/perso2.png", "assets/perso3.png"]
     images = []
-    taille = 150  # La nouvelle taille en pixels !
+    taille = 300  # 3 fois plus grand !
 
     for p in persos:
         try:
@@ -107,18 +107,18 @@ def demander_personnage(screen, clock, largeur, hauteur):
             if event.type == pygame.MOUSEBUTTONDOWN:
                 mx, my = pygame.mouse.get_pos()
                 for i in range(3):
-                    # Zone de clic ajustée avec la nouvelle taille
-                    rect = pygame.Rect(largeur // 2 - 250 + i * 200, hauteur // 2 - 50, taille, taille)
+                    # Zone de clic (avec un espacement de 310 pour ne pas déborder)
+                    rect = pygame.Rect(35 + i * 315, hauteur // 2 - 100, taille, taille)
                     if rect.collidepoint((mx, my)):
                         return persos[i]
 
         screen.fill((15, 20, 35))
         titre = font_titre.render("Choisis ton personnage", True, (255, 255, 255))
-        screen.blit(titre, titre.get_rect(center=(largeur // 2, hauteur // 2 - 150)))
+        screen.blit(titre, titre.get_rect(center=(largeur // 2, hauteur // 2 - 180)))
 
         for i, img in enumerate(images):
-            # Affichage ajusté pour ne pas qu'ils se superposent
-            screen.blit(img, (largeur // 2 - 250 + i * 200, hauteur // 2 - 50))
+            # Affichage ajusté pour des images géantes
+            screen.blit(img, (35 + i * 315, hauteur // 2 - 100))
 
         pygame.display.flip()
         clock.tick(60)
