@@ -88,12 +88,14 @@ def demander_pseudo(screen, clock, largeur, hauteur):
 def demander_personnage(screen, clock, largeur, hauteur):
     persos = ["assets/perso1.png", "assets/perso2.png", "assets/perso3.png"]
     images = []
+    taille = 150  # La nouvelle taille en pixels !
+
     for p in persos:
         try:
             img = pygame.image.load(p).convert_alpha()
-            images.append(pygame.transform.scale(img, (100, 100)))
+            images.append(pygame.transform.scale(img, (taille, taille)))
         except:
-            surf = pygame.Surface((500, 500))
+            surf = pygame.Surface((taille, taille))
             surf.fill((255, 0, 255))
             images.append(surf)
 
@@ -105,16 +107,18 @@ def demander_personnage(screen, clock, largeur, hauteur):
             if event.type == pygame.MOUSEBUTTONDOWN:
                 mx, my = pygame.mouse.get_pos()
                 for i in range(3):
-                    rect = pygame.Rect(largeur // 2 - 200 + i * 150, hauteur // 2, 100, 100)
+                    # Zone de clic ajustée avec la nouvelle taille
+                    rect = pygame.Rect(largeur // 2 - 250 + i * 200, hauteur // 2 - 50, taille, taille)
                     if rect.collidepoint((mx, my)):
                         return persos[i]
 
         screen.fill((15, 20, 35))
         titre = font_titre.render("Choisis ton personnage", True, (255, 255, 255))
-        screen.blit(titre, titre.get_rect(center=(largeur // 2, hauteur // 2 - 100)))
+        screen.blit(titre, titre.get_rect(center=(largeur // 2, hauteur // 2 - 150)))
 
         for i, img in enumerate(images):
-            screen.blit(img, (largeur // 2 - 200 + i * 150, hauteur // 2))
+            # Affichage ajusté pour ne pas qu'ils se superposent
+            screen.blit(img, (largeur // 2 - 250 + i * 200, hauteur // 2 - 50))
 
         pygame.display.flip()
         clock.tick(60)
