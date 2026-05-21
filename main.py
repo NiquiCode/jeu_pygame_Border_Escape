@@ -93,7 +93,7 @@ def demander_personnage(screen, clock, largeur, hauteur):
             img = pygame.image.load(p).convert_alpha()
             images.append(pygame.transform.scale(img, (100, 100)))
         except:
-            surf = pygame.Surface((100, 100))
+            surf = pygame.Surface((500, 500))
             surf.fill((255, 0, 255))
             images.append(surf)
 

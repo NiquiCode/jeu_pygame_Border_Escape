@@ -15,8 +15,8 @@ class Player:
 
         self.x = x
         self.y = y
-        self.width = 42
-        self.height = 56
+        self.width = 200
+        self.height = 200
         self.speed = 4
 
         self.facing_right = True
