@@ -9,6 +9,7 @@ class Minimap:
         
         self.show_big = False 
         self.font = pygame.font.Font(None, 30)
+        self.font_small = pygame.font.Font(None, 18) # Pour la petite minimap
 
     def toggle(self):
         self.show_big = not self.show_big
@@ -17,21 +18,26 @@ class Minimap:
         # Configuration Taille et Position
         if self.show_big:
             case_size = 150
-            margin = 20
+            margin = 35 # Marge agrandie pour laisser de la place aux lettres
             # Centre
-            start_x = (self.screen_width - (case_size * 3)) // 2
-            start_y = (self.screen_height - (case_size * 3)) // 2
+            start_x = (self.screen_width - (case_size * 3 + margin * 2)) // 2
+            start_y = (self.screen_height - (case_size * 3 + margin * 2)) // 2
             alpha = 230
+            current_font = self.font
+            offset_text = 20
         else:
             case_size = 40
-            margin = 5
+            margin = 25 # Marge pour les petites lettres
             # BAS GAUCHE
-            start_x = 40 
-            start_y = self.screen_height - (case_size * 3) - 40
+            start_x = 20 
+            start_y = self.screen_height - (case_size * 3 + margin * 2) - 20
             alpha = 180
+            current_font = self.font_small
+            offset_text = 12
 
-        bg_w = case_size * 3 + margin * 4
-        bg_h = case_size * 3 + margin * 4
+        # La surface englobe les cases ET la zone pour le texte
+        bg_w = case_size * 3 + margin + 15
+        bg_h = case_size * 3 + margin + 15
         
         map_surface = pygame.Surface((bg_w, bg_h))
         map_surface.set_alpha(alpha)
@@ -41,27 +47,31 @@ class Minimap:
         px, py = self.map_manager.player_pos
         ex, ey = self.map_manager.exit_pos
         
-        # Dessin des labels (A, B, C / 1, 2, 3)
         lettres = ["A", "B", "C"]
         chiffres = ["1", "2", "3"]
 
         for y in range(3):
-            # Dessin Chiffres (1, 2, 3) à gauche
-            if self.show_big:
-                lbl = self.font.render(chiffres[y], True, (255, 255, 255))
-                screen.blit(lbl, (start_x - 30, start_y + y*(case_size+5) + case_size//2))
+            # --- DESSIN DES CHIFFRES (1, 2, 3) SUR LA GAUCHE ---
+            lbl = current_font.render(chiffres[y], True, (200, 200, 200))
+            # On le centre verticalement par rapport à sa case
+            text_y = margin + y * (case_size + 5) + (case_size // 2) - (lbl.get_height() // 2)
+            map_surface.blit(lbl, (offset_text - lbl.get_width()//2, text_y))
 
             for x in range(3):
-                # Dessin Lettres (A, B, C) en haut (seulement sur la première ligne)
-                if y == 0 and self.show_big:
-                    lbl = self.font.render(lettres[x], True, (255, 255, 255))
-                    screen.blit(lbl, (start_x + x*(case_size+5) + case_size//2, start_y - 30))
+                # --- DESSIN DES LETTRES (A, B, C) EN HAUT ---
+                if y == 0:
+                    lbl_lettre = current_font.render(lettres[x], True, (200, 200, 200))
+                    # On le centre horizontalement par rapport à sa case
+                    text_x = margin + x * (case_size + 5) + (case_size // 2) - (lbl_lettre.get_width() // 2)
+                    map_surface.blit(lbl_lettre, (text_x, offset_text - lbl_lettre.get_height()//2))
 
+                # --- DESSIN DES CASES ---
                 code = grid[y][x]
                 color = COULEURS_SALLES[code]
                 
-                rect_x = x * (case_size + 5) + 10
-                rect_y = y * (case_size + 5) + 10
+                # On décale les cases de 'margin' pour laisser de la place au texte
+                rect_x = margin + x * (case_size + 5)
+                rect_y = margin + y * (case_size + 5)
                 rect = pygame.Rect(rect_x, rect_y, case_size, case_size)
                 
                 pygame.draw.rect(map_surface, color, rect, border_radius=4)
@@ -76,7 +86,10 @@ class Minimap:
                      door_rect.center = rect.center
                      pygame.draw.rect(map_surface, (50, 25, 0), door_rect)
 
+        # Bordure autour de la minimap
         if self.show_big:
             pygame.draw.rect(map_surface, (255, 255, 255), map_surface.get_rect(), 2)
+        else:
+            pygame.draw.rect(map_surface, (100, 100, 100), map_surface.get_rect(), 1)
             
         screen.blit(map_surface, (start_x, start_y))

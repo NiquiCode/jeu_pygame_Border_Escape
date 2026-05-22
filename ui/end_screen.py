@@ -1,13 +1,7 @@
-# Écran de fin de jeu.
-# Rôle :
-# - Victoire ou défaite
-# - Message final
-# - Retour au menu
-
 import pygame
+import sys
 
-class EndScreen: #Gère l'écran de fin de partie avec classement
-    
+class EndScreen: 
     def __init__(self, largeur, hauteur):
         self.largeur = largeur
         self.hauteur = hauteur
@@ -21,8 +15,25 @@ class EndScreen: #Gère l'écran de fin de partie avec classement
         self.JAUNE = (255, 215, 0)
         self.GRIS = (50, 50, 70)
         self.GRIS_CLAIR = (100, 100, 120)
-    
-    def afficher(self, ecran, joueurs): #Affiche l'écran de fin avec le classement
+
+        # Création des boutons (placés en bas de l'écran)
+        self.btn_rejouer_rect = pygame.Rect(self.largeur // 2 - 260, self.hauteur - 80, 200, 50)
+        self.btn_lobby_rect = pygame.Rect(self.largeur // 2 + 60, self.hauteur - 80, 200, 50)
+
+    def handle_input(self, event):
+        """
+        Gère les clics de souris.
+        Retourne "REJOUER" ou "LOBBY", sinon None.
+        """
+        if event.type == pygame.MOUSEBUTTONDOWN:
+            if event.button == 1:
+                if self.btn_rejouer_rect.collidepoint(event.pos):
+                    return "REJOUER"
+                if self.btn_lobby_rect.collidepoint(event.pos):
+                    return "LOBBY"
+        return None
+
+    def afficher(self, ecran, joueurs): 
         #Fond semi-transparent
         fond = pygame.Surface((self.largeur, self.hauteur))
         fond.fill(self.NOIR)
@@ -31,24 +42,24 @@ class EndScreen: #Gère l'écran de fin de partie avec classement
         
         #Titre
         texte_titre = self.police_titre.render("🏆 MISSION TERMINÉE 🏆", True, self.JAUNE)
-        rect_titre = texte_titre.get_rect(center=(self.largeur // 2, 100))
+        rect_titre = texte_titre.get_rect(center=(self.largeur // 2, 80))
         ecran.blit(texte_titre, rect_titre)
         
         #Score collectif
         score_total = sum(j.score for j in joueurs)
         texte_label = self.police_petite.render("SCORE COLLECTIF", True, self.GRIS_CLAIR)
-        rect_label = texte_label.get_rect(center=(self.largeur // 2, 180))
+        rect_label = texte_label.get_rect(center=(self.largeur // 2, 130))
         ecran.blit(texte_label, rect_label)
         
         texte_score = self.police_titre.render(str(score_total), True, self.JAUNE)
-        rect_score = texte_score.get_rect(center=(self.largeur // 2, 220))
+        rect_score = texte_score.get_rect(center=(self.largeur // 2, 160))
         ecran.blit(texte_score, rect_score)
         
         #Trier les joueurs
         joueurs_tries = sorted(joueurs, key=lambda j: j.score, reverse=True)
         
         #Afficher classement
-        y = 300
+        y = 220
         medailles = ["🥇", "🥈", "🥉"]
         
         for i, joueur in enumerate(joueurs_tries):
@@ -74,8 +85,8 @@ class EndScreen: #Gère l'écran de fin de partie avec classement
             ecran.blit(texte_nom, (self.largeur // 2 - 220, y + 20))
             
             #Score
-            texte_score = self.police_normale.render(str(joueur.score), True, self.JAUNE)
-            ecran.blit(texte_score, (self.largeur // 2 + 150, y + 20))
+            texte_score_j = self.police_normale.render(str(joueur.score), True, self.JAUNE)
+            ecran.blit(texte_score_j, (self.largeur // 2 + 150, y + 20))
             
             #Vies
             texte_vies = self.police_petite.render(f"{joueur.vies} vies", True, self.GRIS_CLAIR)
@@ -83,7 +94,14 @@ class EndScreen: #Gère l'écran de fin de partie avec classement
             
             y += 80
         
-        #Instructions
-        texte_rejouer = self.police_petite.render("Appuyez sur R pour REJOUER", True, self.BLANC)
-        rect_rejouer = texte_rejouer.get_rect(center=(self.largeur // 2, self.hauteur - 50))
-        ecran.blit(texte_rejouer, rect_rejouer)
+        # --- Dessin Bouton Rejouer ---
+        pygame.draw.rect(ecran, (200, 200, 200), self.btn_rejouer_rect)
+        pygame.draw.rect(ecran, (0, 0, 0), self.btn_rejouer_rect, 3)
+        lbl_r = self.police_normale.render("REJOUER", True, (0, 0, 0))
+        ecran.blit(lbl_r, lbl_r.get_rect(center=self.btn_rejouer_rect.center))
+
+        # --- Dessin Bouton Retour Lobby ---
+        pygame.draw.rect(ecran, (100, 150, 200), self.btn_lobby_rect)
+        pygame.draw.rect(ecran, (0, 0, 0), self.btn_lobby_rect, 3)
+        lbl_l = self.police_normale.render("RETOUR LOBBY", True, (0, 0, 0))
+        ecran.blit(lbl_l, lbl_l.get_rect(center=self.btn_lobby_rect.center))

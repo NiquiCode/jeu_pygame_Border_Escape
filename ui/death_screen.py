@@ -1,4 +1,3 @@
-#écran de mort quand un joueur meurt
 import pygame
 
 class DeathScreen:
@@ -9,16 +8,27 @@ class DeathScreen:
         self.font_btn = pygame.font.Font(None, 40)
         
         # Bouton Rejouer
-        self.btn_rect = pygame.Rect(0, 0, 200, 60)
-        self.btn_rect.center = (width // 2, height // 2 + 100)
+        self.btn_rejouer_rect = pygame.Rect(0, 0, 250, 60)
+        self.btn_rejouer_rect.center = (width // 2, height // 2 + 50)
+        
+        # Bouton Retour Lobby
+        self.btn_lobby_rect = pygame.Rect(0, 0, 250, 60)
+        self.btn_lobby_rect.center = (width // 2, height // 2 + 130)
 
     def handle_input(self, event):
-        """Retourne True si le joueur clique sur Rejouer"""
+        """
+        Retourne :
+        - "REJOUER" si le joueur clique sur Rejouer
+        - "LOBBY" si le joueur clique sur Retour Lobby
+        - None sinon
+        """
         if event.type == pygame.MOUSEBUTTONDOWN:
             if event.button == 1: # Clic gauche
-                if self.btn_rect.collidepoint(event.pos):
-                    return True
-        return False
+                if self.btn_rejouer_rect.collidepoint(event.pos):
+                    return "REJOUER"
+                elif self.btn_lobby_rect.collidepoint(event.pos):
+                    return "LOBBY"
+        return None
 
     def draw(self, screen):
         # Fond rouge sang semi-transparent
@@ -32,10 +42,14 @@ class DeathScreen:
         rect = txt.get_rect(center=(self.width//2, self.height//2 - 50))
         screen.blit(txt, rect)
         
-        # Bouton Rejouer
-        pygame.draw.rect(screen, (200, 200, 200), self.btn_rect)
-        pygame.draw.rect(screen, (0, 0, 0), self.btn_rect, 3)
-        
-        lbl = self.font_btn.render("REJOUER", True, (0, 0, 0))
-        lbl_rect = lbl.get_rect(center=self.btn_rect.center)
-        screen.blit(lbl, lbl_rect)
+        # --- Dessin Bouton Rejouer ---
+        pygame.draw.rect(screen, (200, 200, 200), self.btn_rejouer_rect)
+        pygame.draw.rect(screen, (0, 0, 0), self.btn_rejouer_rect, 3)
+        lbl_r = self.font_btn.render("REJOUER", True, (0, 0, 0))
+        screen.blit(lbl_r, lbl_r.get_rect(center=self.btn_rejouer_rect.center))
+
+        # --- Dessin Bouton Retour Lobby ---
+        pygame.draw.rect(screen, (100, 150, 200), self.btn_lobby_rect)
+        pygame.draw.rect(screen, (0, 0, 0), self.btn_lobby_rect, 3)
+        lbl_l = self.font_btn.render("RETOUR LOBBY", True, (0, 0, 0))
+        screen.blit(lbl_l, lbl_l.get_rect(center=self.btn_lobby_rect.center))

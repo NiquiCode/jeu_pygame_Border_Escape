@@ -14,7 +14,7 @@ from ui.death_screen import DeathScreen
 from ui.menu import LobbyMenu
 from network.server import GameServer
 from network.client import GameClient
-from world.world_manager import WorldManager # NOUVEAU : Import du monde
+from gameplay.npc_master import NPCMaster
 
 print("MAIN VERSION CORRIGEE")
 print(__file__)
@@ -32,6 +32,8 @@ font_input = pygame.font.SysFont(None, 42)
 font_loading = pygame.font.SysFont(None, 48)
 font_loading_small = pygame.font.SysFont(None, 28)
 
+# Initialisation du sorcier
+sorcier = NPCMaster(LARGEUR, HAUTEUR)
 
 def demander_pseudo(screen, clock, largeur, hauteur):
     pseudo = ""
@@ -84,20 +86,32 @@ def demander_pseudo(screen, clock, largeur, hauteur):
         clock.tick(60)
 
 
-# NOUVEAU : Fonction pour choisir le personnage
 def demander_personnage(screen, clock, largeur, hauteur):
-    persos = ["assets/perso1.png", "assets/perso2.png", "assets/perso3.png"]
+    persos = ["assets/perso1.png", "assets/perso2.png", "assets/perso3.png", "assets/perso4.png"]
     images = []
-    taille = 300  # 3 fois plus grand !
+    taille_menu = 120 
 
     for p in persos:
         try:
             img = pygame.image.load(p).convert_alpha()
-            images.append(pygame.transform.scale(img, (taille, taille)))
+            images.append(pygame.transform.scale(img, (taille_menu, taille_menu)))
         except:
-            surf = pygame.Surface((taille, taille))
+            surf = pygame.Surface((taille_menu, taille_menu))
             surf.fill((255, 0, 255))
             images.append(surf)
+
+    nb_persos = len(persos)
+    spacing = 30
+    total_group_width = nb_persos * taille_menu + (nb_persos - 1) * spacing
+    first_x = (largeur - total_group_width) // 2
+    
+    click_rects = []
+    for i in range(nb_persos):
+        rx = first_x + i * (taille_menu + spacing)
+        rect = pygame.Rect(rx, hauteur // 2 - 100, taille_menu, taille_menu)
+        click_rects.append(rect)
+
+    font_titre = pygame.font.Font(None, 48)
 
     while True:
         for event in pygame.event.get():
@@ -106,19 +120,18 @@ def demander_personnage(screen, clock, largeur, hauteur):
                 sys.exit()
             if event.type == pygame.MOUSEBUTTONDOWN:
                 mx, my = pygame.mouse.get_pos()
-                for i in range(3):
-                    # Zone de clic (avec un espacement de 310 pour ne pas déborder)
-                    rect = pygame.Rect(35 + i * 315, hauteur // 2 - 100, taille, taille)
-                    if rect.collidepoint((mx, my)):
+                for i in range(nb_persos):
+                    if click_rects[i].collidepoint((mx, my)):
                         return persos[i]
 
         screen.fill((15, 20, 35))
+        
         titre = font_titre.render("Choisis ton personnage", True, (255, 255, 255))
-        screen.blit(titre, titre.get_rect(center=(largeur // 2, hauteur // 2 - 180)))
+        screen.blit(titre, titre.get_rect(center=(largeur // 2, hauteur // 2 - 200)))
 
         for i, img in enumerate(images):
-            # Affichage ajusté pour des images géantes
-            screen.blit(img, (35 + i * 315, hauteur // 2 - 100))
+            px = click_rects[i].x
+            screen.blit(img, (px, hauteur // 2 - 100))
 
         pygame.display.flip()
         clock.tick(60)
@@ -305,7 +318,7 @@ def update_remote_player(data):
             is_local=False,
             x=data.get("x", 100),
             y=data.get("y", 100),
-            image_path=data.get("image_path") # NOUVEAU
+            image_path=data.get("image_path")
         )
 
     joueur = remote_players[player_id]
@@ -325,7 +338,7 @@ def remplacer_liste_joueurs(players_data):
             "facing_right": getattr(p, "facing_right", True),
             "is_host": getattr(p, "is_host", False),
             "room_pos": getattr(p, "room_pos", [1, 1]),
-            "image_path": getattr(p, "image_path", None) # NOUVEAU
+            "image_path": getattr(p, "image_path", None)
         }
 
     remote_players.clear()
@@ -342,7 +355,7 @@ def remplacer_liste_joueurs(players_data):
             is_local=False,
             x=pdata.get("x", 100),
             y=pdata.get("y", 100),
-            image_path=pdata.get("image_path") # NOUVEAU
+            image_path=pdata.get("image_path")
         )
 
         if pdata["id"] in anciens:
@@ -372,13 +385,13 @@ def deplacer_joueur_dans_lobby():
     dx = 0
     dy = 0
 
-    if touches[pygame.K_LEFT]:
+    if touches[pygame.K_LEFT] or touches[pygame.K_q]:
         dx -= local_player.speed
-    if touches[pygame.K_RIGHT]:
+    if touches[pygame.K_RIGHT] or touches[pygame.K_d]:
         dx += local_player.speed
-    if touches[pygame.K_UP]:
+    if touches[pygame.K_UP] or touches[pygame.K_z]:
         dy -= local_player.speed
-    if touches[pygame.K_DOWN]:
+    if touches[pygame.K_DOWN] or touches[pygame.K_s]:
         dy += local_player.speed
 
     if dx != 0 or dy != 0:
@@ -393,7 +406,7 @@ def deplacer_joueur_dans_lobby():
 
 
 pseudo_joueur = demander_pseudo(ecran, horloge, LARGEUR, HAUTEUR)
-image_perso = demander_personnage(ecran, horloge, LARGEUR, HAUTEUR) # NOUVEAU
+image_perso = demander_personnage(ecran, horloge, LARGEUR, HAUTEUR)
 mode_reseau = demander_mode_reseau(ecran, horloge, LARGEUR, HAUTEUR)
 
 server = None
@@ -419,10 +432,6 @@ end_screen = EndScreen(LARGEUR, HAUTEUR)
 death_screen = DeathScreen(LARGEUR, HAUTEUR)
 lobby_menu = LobbyMenu(LARGEUR, HAUTEUR)
 
-# NOUVEAU : On génère le sol du monde !
-world_manager = WorldManager()
-world_manager.generate_world()
-
 local_player = Player(
     pseudo_joueur,
     (52, 152, 219),
@@ -430,7 +439,7 @@ local_player = Player(
     is_local=True,
     x=220,
     y=360,
-    image_path=image_perso # NOUVEAU : Application de l'image
+    image_path=image_perso
 )
 local_player.is_host = est_host
 
@@ -463,7 +472,7 @@ if client:
         "vies": local_player.vies,
         "facing_right": local_player.facing_right,
         "room_pos": map_manager.player_pos[:],
-        "image_path": local_player.image_path # NOUVEAU
+        "image_path": local_player.image_path
     })
 
 while True:
@@ -497,33 +506,57 @@ while True:
                     client.send({"type": "START_GAME"})
                 else:
                     demarrer_loading()
+            elif action == "CHANGE_CHARACTER":
+                nouveau_perso_path = demander_personnage(ecran, horloge, LARGEUR, HAUTEUR)
+                local_player.image_path = nouveau_perso_path
+                local_player.charger_image()
 
         elif etat_jeu == "MORT":
-            if death_screen.handle_input(event):
+            action_mort = death_screen.handle_input(event)
+            if action_mort == "REJOUER":
                 joueur_actif.reset()
                 map_manager.generate_new_map()
                 central_room.reset_round()
                 etat_jeu = "CENTRAL"
+            elif action_mort == "LOBBY":
+                joueur_actif.reset()
+                etat_jeu = "LOBBY"
 
-        elif etat_jeu == "ENIGME" and puzzle_actif:
-            resultat = puzzle_actif.handle_event(event)
-
-            if resultat is True:
-                joueur_actif.gagner_points(100)
-                map_manager.quests_completed += 1
-                map_manager.check_exit_condition()
+        elif partie_terminee:
+            action_fin = end_screen.handle_input(event)
+            if action_fin == "REJOUER":
+                joueur_actif.reset()
+                map_manager.generate_new_map()
                 central_room.reset_round()
+                partie_terminee = False
                 etat_jeu = "CENTRAL"
-                puzzle_actif = None
+            elif action_fin == "LOBBY":
+                joueur_actif.reset()
+                partie_terminee = False
+                etat_jeu = "LOBBY"
 
-            elif resultat is False:
-                joueur_actif.perdre_points(50)
-                joueur_actif.perdre_vie()
-
-                if joueur_actif.vies <= 0:
-                    etat_jeu = "MORT"
-                else:
-                    puzzle_actif = PuzzleRoom()
+        # --- GESTION DU CLAVIER POUR L'ÉNIGME ---
+        elif etat_jeu == "ENIGME" and puzzle_actif:
+            if puzzle_actif.room_type == "TEXT":
+                resultat = puzzle_actif.handle_event(event)
+                
+                if resultat == "QUITTER":
+                    etat_jeu = "CENTRAL"
+                elif resultat == "GAGNE":
+                    joueur_actif.gagner_points(100)
+                    map_manager.quests_completed += 1
+                    map_manager.check_exit_condition()
+                    central_room.reset_round()
+                    etat_jeu = "CENTRAL"
+                    puzzle_actif = None
+                elif resultat == "PERDU":
+                    joueur_actif.perdre_points(50)
+                    joueur_actif.perdre_vie()
+                    if joueur_actif.vies <= 0:
+                        etat_jeu = "MORT"
+                    else:
+                        # On relance l'énigme en cas d'erreur
+                        puzzle_actif = PuzzleRoom(room_type="TEXT")
 
         elif etat_jeu == "CENTRAL":
             if event.type == pygame.KEYDOWN:
@@ -626,8 +659,21 @@ while True:
             etat_jeu = "MORT"
 
         elif result == "LANCER_ENIGME":
-            puzzle_actif = PuzzleRoom()
-            etat_jeu = "ENIGME"
+            # On ne lance pas tout de suite, on affiche le sorcier !
+            pass
+
+        # --- INTERACTION AVEC LE SORCIER ---
+        if central_room.dice_rolled and list(central_room.target_coords) == map_manager.player_pos:
+            if touches[pygame.K_e] and local_player.rect.colliderect(sorcier.rect.inflate(60, 60)):
+                if puzzle_actif:
+                    puzzle_actif.indice_demande = True
+                    etat_jeu = "ENIGME"
+                else:
+                    type_salle_actuelle = map_manager.get_current_room_type()
+                    if type_salle_actuelle == "A": puzzle_actif = PuzzleRoom(room_type="SURVIVAL_ACIDE")
+                    elif type_salle_actuelle == "L": puzzle_actif = PuzzleRoom(room_type="SURVIVAL_PHYSIQUE")
+                    else: puzzle_actif = PuzzleRoom(room_type="TEXT")
+                    etat_jeu = "ENIGME"
 
         elif result == "FIN_DU_JEU":
             partie_terminee = True
@@ -645,10 +691,11 @@ while True:
             "is_host": est_host,
             "facing_right": getattr(local_player, "facing_right", True),
             "room_pos": map_manager.player_pos[:],
-            "image_path": getattr(local_player, "image_path", None) # NOUVEAU
+            "image_path": getattr(local_player, "image_path", None)
         }
         client.send(payload)
 
+    # --- DESSIN DES ÉCRANS ---
     if etat_jeu == "LOBBY":
         lobby_menu.draw(ecran)
 
@@ -657,17 +704,37 @@ while True:
         dessiner_loading(ecran, LARGEUR, HAUTEUR, elapsed)
 
     elif not partie_terminee:
-        # NOUVEAU : On dessine le sol de la grotte !
-        world_manager.draw(ecran)
+        map_manager.draw(ecran)
 
         if etat_jeu == "CENTRAL":
             central_room.draw(ecran)
-
+            
+            # --- DESSIN DU SORCIER ---
+            if central_room.dice_rolled and list(central_room.target_coords) == map_manager.player_pos:
+                sorcier.draw(ecran, local_player.rect)
+                
             local_player.draw(ecran, font_joueur, actif=True)
             draw_remote_players_same_room(ecran, font_joueur)
 
         elif etat_jeu == "ENIGME" and puzzle_actif:
-            puzzle_actif.draw(ecran)
+            if puzzle_actif.room_type != "TEXT":
+                resultat_survie = puzzle_actif.update_survival(local_player)
+                if resultat_survie == "QUITTER":
+                    etat_jeu = "CENTRAL"
+                elif resultat_survie is True: 
+                    print("Gagné l'épreuve de survie !")
+                    joueur_actif.gagner_points(100)
+                    map_manager.quests_completed += 1
+                    map_manager.check_exit_condition()
+                    central_room.reset_round()
+                    etat_jeu = "CENTRAL"
+                    puzzle_actif = None
+                elif resultat_survie is False: 
+                    print("Mort pendant la survie !")
+                    etat_jeu = "MORT"
+
+            if puzzle_actif and etat_jeu == "ENIGME":
+                puzzle_actif.draw(ecran, local_player)
 
         elif etat_jeu == "MORT":
             central_room.draw(ecran)
