@@ -1,58 +1,47 @@
-# Rôle :
-# - Afficher vies
-# - Dés
-# - Score
-# Toujours visible pendant la partie.
-
 import pygame
 
-class HUD: #Gère l'affichage de l'interface utilisateur pendant le jeu
-    
+class HUD:
     def __init__(self, largeur_ecran):
         self.largeur_ecran = largeur_ecran
-        self.police_normale = pygame.font.Font(None, 28)
+        self.police_normale = pygame.font.Font(None, 26)
         self.police_petite = pygame.font.Font(None, 20)
         
-        #Couleurs
         self.BLANC = (255, 255, 255)
         self.JAUNE = (255, 215, 0)
-        self.GRIS = (50, 50, 70)
-        self.GRIS_CLAIR = (100, 100, 120)
+        self.GRIS = (25, 25, 35)
+        self.GRIS_CLAIR = (120, 120, 140)
         self.ROUGE = (231, 76, 60)
     
-    def afficher_liste_joueurs(self, ecran, joueurs, joueur_actuel_index): #Affiche la liste des joueurs sur le côté droit
+    def afficher_liste_joueurs(self, ecran, joueurs, joueur_actuel_index):
+        # Positionnement sur le côté droit sans empiéter sur le centre
         x = self.largeur_ecran - 270
         y = 20
         
-        #Titre
-        texte_titre = self.police_normale.render("JOUEURS", True, self.BLANC)
+        texte_titre = self.police_normale.render("SURVIVANTS", True, self.BLANC)
         ecran.blit(texte_titre, (x, y))
-        y += 40
+        y += 35
         
-        # Afficher chaque joueur
         for i, joueur in enumerate(joueurs):
-            #Fond
-            couleur_fond = joueur.couleur if i == joueur_actuel_index else self.GRIS
-            fond = pygame.Surface((250, 70))
-            fond.fill(couleur_fond)
-            fond.set_alpha(100)
+            # Conteneur individuel propre
+            fond = pygame.Surface((250, 60), pygame.SRCALPHA)
+            fond.fill((30, 35, 45, 220)) 
             ecran.blit(fond, (x, y))
             
-            #Bordure
+            # Bordure distinctive pour le joueur dont c'est le tour
             couleur_bordure = self.JAUNE if i == joueur_actuel_index else self.GRIS_CLAIR
-            pygame.draw.rect(ecran, couleur_bordure, (x, y, 250, 70), 3)
+            epaisseur = 2 if i == joueur_actuel_index else 1
+            pygame.draw.rect(ecran, couleur_bordure, (x, y, 250, 60), epaisseur, border_radius=4)
             
-            #Nom
+            # Nom de l'utilisateur
             texte_nom = self.police_normale.render(joueur.nom, True, self.BLANC)
-            ecran.blit(texte_nom, (x + 10, y + 10))
+            ecran.blit(texte_nom, (x + 15, y + 8))
             
-            #Score
-            texte_score = self.police_petite.render(f"Score: {joueur.score}", True, self.JAUNE)
-            ecran.blit(texte_score, (x + 10, y + 35))
+            # Informations de jeu alignées
+            texte_score = self.police_petite.render(f"Pts: {joueur.score}", True, self.JAUNE)
+            ecran.blit(texte_score, (x + 15, y + 34))
             
-            #Vies
-            couleur_vie = self.ROUGE if joueur.vies > 0 else self.GRIS_CLAIR
+            couleur_vie = self.ROUGE if joueur.vies > 2 else self.GRIS_CLAIR
             texte_vies = self.police_petite.render(f"Vies: {joueur.vies}/10", True, couleur_vie)
-            ecran.blit(texte_vies, (x + 140, y + 35))
+            ecran.blit(texte_vies, (x + 140, y + 34))
             
-            y += 80
+            y += 70

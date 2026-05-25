@@ -1,11 +1,10 @@
 import random
 import pygame
 
-# "G": Grotte, "A": Acide, "L": Labo
 COULEURS_SALLES = {
-    "G": (30, 30, 30),
-    "A": (46, 204, 113),
-    "L": (52, 152, 219)
+    "G": (35, 35, 45),       # Grotte (Gris sombre)
+    "A": (39, 174, 96),      # Acide (Vert toxique bien visible)
+    "L": (41, 128, 185)      # Labo (Bleu électrique intense)
 }
 
 class MapManager:
@@ -18,10 +17,8 @@ class MapManager:
         self.quests_completed = 0
         self.min_quests_to_exit = 2 
         self.exit_revealed = False
-        
         self.backgrounds = {}
         
-        # Association des thèmes aux images
         image_paths = {
             "G": "assets/sol.png",
             "A": "assets/sol_acide.png",
@@ -33,19 +30,9 @@ class MapManager:
                 img = pygame.image.load(path).convert()
                 self.backgrounds[theme_code] = pygame.transform.scale(img, (1000, 700))
             except FileNotFoundError:
-                # Double sécurité pour la grotte si elle s'appelle différemment
-                if theme_code == "G":
-                    try:
-                        img = pygame.image.load("assets/sol_grotte_pixel.png").convert()
-                        self.backgrounds[theme_code] = pygame.transform.scale(img, (1000, 700))
-                        continue
-                    except:
-                        pass
-                        
-                # Fond de secours si introuvable
+                # Fallback haute visibilité si l'image est manquante
                 surf = pygame.Surface((1000, 700))
-                r, g, b = COULEURS_SALLES[theme_code]
-                surf.fill((max(0, r-50), max(0, g-50), max(0, b-50)))
+                surf.fill(COULEURS_SALLES[theme_code])
                 self.backgrounds[theme_code] = surf
         
         self.generate_new_map()
@@ -53,11 +40,9 @@ class MapManager:
     def generate_new_map(self):
         salles = ["A", "L", "G", "G", "G", "G", "G", "G", "G"]
         
-        # --- NOUVEAU : On s'assure que le joueur spawn dans une Grotte ---
-        # L'index 4 correspond au centre (B2) de la grille 3x3
         while True:
             random.shuffle(salles)
-            if salles[4] == "G":
+            if salles[4] == "G": 
                 break
                 
         self.grid = []
@@ -73,7 +58,6 @@ class MapManager:
         self.quests_completed = 0
         self.exit_revealed = False
         
-        # Position initiale de la sortie (sera re-vérifiée plus tard)
         while True:
             ex = random.randint(0, 2)
             ey = random.randint(0, 2)
@@ -82,11 +66,8 @@ class MapManager:
                 break
 
     def check_exit_condition(self):
-        # --- NOUVEAU : La sortie s'éloigne du joueur si besoin ---
         if self.quests_completed >= self.min_quests_to_exit and not self.exit_revealed:
             self.exit_revealed = True
-            
-            # Si la sortie pré-calculée est dans la même salle que le joueur, on la déplace
             while self.exit_pos == self.player_pos:
                 self.exit_pos = [random.randint(0, 2), random.randint(0, 2)]
 

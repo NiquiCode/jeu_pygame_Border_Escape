@@ -2,26 +2,53 @@ import pygame
 
 class NPCMaster:
     def __init__(self, screen_width, screen_height):
-        self.width = 80
-        self.height = 100
-        # Position du maitre du jeu
-        self.rect = pygame.Rect(screen_width - 150, screen_height // 2 - 50, self.width, self.height)
-        self.font = pygame.font.Font(None, 28)
+        """
+        Initialise le Maître du Jeu en tant qu'image chargée depuis le disque.
+        """
+        # --- MODIFICATION ---
+        # Définition des dimensions et de la position pour le nouveau PNJ
+        # Ce PNJ est basé sur une image chargée, et non plus sur des formes géométriques.
+        #
+        self.width = 180
+        self.height = 200
+        # Positionné à droite de la salle
+        self.rect = pygame.Rect(screen_width - 250, screen_height // 2 - 100, self.width, self.height)
         
-        # Chargement de ton image
+        self.font = pygame.font.Font(None, 28)
+        self.talking = False
+
+        # --- NOUVEAU : Chargement de l'image personnalisée ---
         try:
-            img = pygame.image.load("assets/maitre_du_jeu.png").convert_alpha()
+            # Nous chargeons l'image que vous avez dessinée et que vous nommerez
+            # "maitre_du_jeu2.png" dans le dossier "assets/".
+            #
+            img = pygame.image.load("assets/maitre_du_jeu2.png").convert_alpha()
+            # On redimensionne l'image pour qu'elle corresponde aux dimensions de self.rect
+            #
             self.image = pygame.transform.scale(img, (self.width, self.height))
         except FileNotFoundError:
-            # Sécurité si l'image manque : un carré rose fluo pour que tu le remarques direct
+            # Sécurité en cas de fichier manquant : on crée une surface distinctive
+            # (un carré rose fluo) pour signaler le problème.
             self.image = pygame.Surface((self.width, self.height))
             self.image.fill((255, 0, 255)) 
 
     def draw(self, screen, player_rect):
-        # Dessin de ton image
+        """
+        Dessine le PNJ (votre image) et gère l'indication d'interaction.
+        """
+        # --- MODIFICATION ---
+        # 1. On dessine l'image chargée au lieu des formes géométriques.
+        #
         screen.blit(self.image, (self.rect.x, self.rect.y))
         
-        # Interaction si le joueur s'approche (zone gonflée de 60 pixels autour de lui)
+        # 2. On conserve et on adapte la logique d'interaction
+        # On vérifie la proximité entre le joueur et le rectangle du nouveau PNJ.
+        # On utilise la même logique d'inflation pour la détection que dans le main.py.
+        #
         if player_rect.colliderect(self.rect.inflate(60, 60)):
+            # Si le joueur est proche, on affiche le texte d'indication.
+            #
             txt = self.font.render("[E] PARLER AU MAITRE", True, (255, 255, 100))
-            screen.blit(txt, (self.rect.x - 40, self.rect.y - 30))
+            # On positionne le texte par rapport au rectangle du PNJ.
+            #
+            screen.blit(txt, (self.rect.x + 10, self.rect.y - 30))
