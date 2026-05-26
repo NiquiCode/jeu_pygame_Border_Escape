@@ -2,9 +2,10 @@ import pygame
 import sys
 
 class OptionsMenu:
-    def __init__(self, width, height):
+    def __init__(self, width, height, sons_dict):
         self.width = width
         self.height = height
+        self.sons = sons_dict
         self.font_titre = pygame.font.Font(None, 70)
         self.font_texte = pygame.font.Font(None, 40)
         self.font_btn = pygame.font.Font(None, 45)
@@ -16,6 +17,11 @@ class OptionsMenu:
         self.btn_vol_moins = pygame.Rect(width // 2 + 60, 200, 50, 50)
         self.btn_vol_plus = pygame.Rect(width // 2 + 200, 200, 50, 50)
 
+    def update_music_volume(self, volume):
+        pygame.mixer.music.set_volume(volume)
+        for sound in self.sons.values():
+            sound.set_volume(volume)
+            
     def afficher(self, ecran, horloge):
         while True:
             for event in pygame.event.get():
@@ -25,13 +31,13 @@ class OptionsMenu:
                     
                 if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
                     if self.btn_retour.collidepoint(event.pos):
-                        return # Quitte les options
+                        return
                     if self.btn_vol_moins.collidepoint(event.pos):
                         self.volume = max(0.0, self.volume - 0.1)
-                        pygame.mixer.music.set_volume(self.volume)
+                        self.update_music_volume(self.volume)
                     if self.btn_vol_plus.collidepoint(event.pos):
                         self.volume = min(1.0, self.volume + 0.1)
-                        pygame.mixer.music.set_volume(self.volume)
+                        self.update_music_volume(self.volume)
 
             ecran.fill((10, 15, 25))
 
@@ -54,10 +60,10 @@ class OptionsMenu:
             ecran.blit(txt_touches, txt_touches.get_rect(center=(self.width // 2, 360)))
 
             controles = [
-                "Déplacement :  Z / Q / S / D   ou   Flèches",
-                "Action / Parler :  E",
-                "Carte (Minimap) :  M",
-                "Quitter / Abandonner :  ESC"
+                "Déplacement : Z / Q / S / D  ou  Flèches",
+                "Action / Parler : E",
+                "Carte (Minimap) : M",
+                "Abandonner : ESC (Verrouillé en énigme)"
             ]
 
             y = 430

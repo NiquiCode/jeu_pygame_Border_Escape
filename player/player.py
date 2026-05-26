@@ -7,20 +7,19 @@ class Player:
         self.couleur = couleur
         self.player_id = player_id
         self.is_local = is_local
-        self.x, self.y = x, y
+        self.x = x
+        self.y = y
         self.speed = 4
         self.size = 55  
         self.rect = pygame.Rect(self.x, self.y, self.size, self.size)
-        
         self.score = 0
         self.vies = 10
+        self.indices_restants = 3
         self.facing_right = True
         self.is_host = False
-        
         self.est_bloque = False
         self.is_selected = False
         self.room_pos = [1, 1]
-        
         self.image_path = image_path
         self.image = None
         self.charger_image()
@@ -36,16 +35,17 @@ class Player:
     def reset(self):
         self.score = 0
         self.vies = 10
+        self.indices_restants = 3
         self.est_bloque = False
         self.is_selected = False
 
-    def gagner_points(self, points): 
+    def gagner_points(self, points):
         self.score += points
         
     def perdre_points(self, points):
         self.score = max(0, self.score - points)
         
-    def perdre_vie(self): 
+    def perdre_vie(self):
         self.vies -= 1
 
     def move(self, dx, dy, min_x, max_x, min_y, max_y):
@@ -60,6 +60,7 @@ class Player:
         self.y = data.get("y", self.y)
         self.score = data.get("score", self.score)
         self.vies = data.get("vies", self.vies)
+        self.indices_restants = data.get("indices_restants", self.indices_restants)
         self.est_bloque = data.get("est_bloque", self.est_bloque)
         self.room_pos = data.get("room_pos", self.room_pos)
         self.rect.topleft = (self.x, self.y)
