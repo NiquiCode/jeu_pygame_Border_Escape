@@ -10,7 +10,7 @@ class Player:
         self.x = x
         self.y = y
         self.speed = 4
-        self.size = 55  
+        self.size = 120  
         self.rect = pygame.Rect(self.x, self.y, self.size, self.size)
         self.score = 0
         self.vies = 10
@@ -54,6 +54,9 @@ class Player:
         self.y = max(min_y, min(self.y + dy, max_y - self.size))
         self.rect.topleft = (self.x, self.y)
         if dx != 0: self.facing_right = dx > 0
+    
+    def update(self):
+        self.rect.topleft = (self.x, self.y)
 
     def update_from_dict(self, data):
         self.x = data.get("x", self.x)

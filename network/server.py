@@ -144,6 +144,10 @@ class GameServer:
                 "map_data": self.map_data,
             })
 
+        elif msg_type in ["SYNC_ROLL", "NEW_ROLLER", "UNLOCK_PLAYER", "NEW_DESTINATION", "DOOR_OPENED"]:
+            # On renvoie l'information de jeu à tout le monde SAUF à celui qui a envoyé l'action
+            self.broadcast(message, exclude=client_socket)
+
         elif msg_type == "DICE_RESULT":
             with self.lock:
                 if client_socket != self.host_socket:

@@ -21,8 +21,6 @@ from network.client import GameClient
 from gameplay.npc_master import NPCMaster
 from ui.dice import Dice 
 
-print("MAIN FINAL - UX VERROUILLÉE ET AIDE INTÉGRÉE")
-
 pygame.init()
 pygame.mixer.init()
 
@@ -48,7 +46,7 @@ try:
     sons["intro"].play(loops=-1)
     sons["intro"].set_volume(0.5)
 except:
-    print("Sons manquants dans assets/. Le jeu continue sans audio.")
+    pass
 
 sorcier = NPCMaster(LARGEUR, HAUTEUR)
 de_jeu = Dice(LARGEUR // 2, HAUTEUR // 2 - 110) 
@@ -92,7 +90,7 @@ def demander_pseudo(screen, clock, largeur, hauteur):
         pygame.display.flip(); clock.tick(60)
 
 def demander_personnage(screen, clock, largeur, hauteur):
-    skins = ["assets/perso1.png", "assets/perso2.png", "assets/perso3.png"]
+    skins = ["assets/perso1.png", "assets/perso2.png", "assets/perso3.png", "assets/perso4.png"]
     images = []
     for s in skins:
         try:
@@ -113,11 +111,12 @@ def demander_personnage(screen, clock, largeur, hauteur):
     overlay = pygame.Surface((largeur, hauteur), pygame.SRCALPHA)
     overlay.fill((0, 0, 0, 190))
 
-    box_width, box_height = 140, 140
+    box_width, box_height = 120, 120
     boxes = [
-        pygame.Rect(largeur // 2 - 240, hauteur // 2 - 70, box_width, box_height),
-        pygame.Rect(largeur // 2 - 70, hauteur // 2 - 70, box_width, box_height),
-        pygame.Rect(largeur // 2 + 100, hauteur // 2 - 70, box_width, box_height)
+        pygame.Rect(largeur//2 - 250, hauteur//2 - 70, box_width, box_height),
+        pygame.Rect(largeur//2 - 100, hauteur//2 - 70, box_width, box_height),
+        pygame.Rect(largeur//2 + 50, hauteur//2 - 70, box_width, box_height),
+        pygame.Rect(largeur//2 + 200, hauteur//2 - 70, box_width, box_height)
     ]
 
     while True:
@@ -133,17 +132,12 @@ def demander_personnage(screen, clock, largeur, hauteur):
         titre = font_titre.render("CHOIX DU SKIN", True, (0, 255, 255))
         screen.blit(titre, titre.get_rect(center=(largeur // 2, 100)))
         
-        instruction = font_texte.render("Passe ta souris et clique sur un personnage :", True, (200, 200, 200))
-        screen.blit(instruction, instruction.get_rect(center=(largeur // 2, 180)))
-
         for idx, box in enumerate(boxes):
             hovered = box.collidepoint(mx, my)
             box_color = (30, 144, 255) if hovered else (30, 40, 60)
             border_color = (255, 255, 255) if hovered else (100, 100, 100)
-            
             pygame.draw.rect(screen, box_color, box, border_radius=12)
             pygame.draw.rect(screen, border_color, box, 3, border_radius=12)
-            
             img_rect = images[idx].get_rect(center=box.center)
             screen.blit(images[idx], img_rect)
 
@@ -154,11 +148,8 @@ def demander_mode_reseau(screen, clock, largeur, hauteur):
         bg = pygame.image.load("assets/menu_bg.png").convert()
         bg = pygame.transform.scale(bg, (largeur, hauteur))
     except:
-        bg = pygame.Surface((largeur, hauteur))
-        bg.fill((15, 20, 35))
-    overlay = pygame.Surface((largeur, hauteur), pygame.SRCALPHA)
-    overlay.fill((0, 0, 0, 190))
-
+        bg = pygame.Surface((largeur, hauteur)); bg.fill((15, 20, 35))
+    overlay = pygame.Surface((largeur, hauteur), pygame.SRCALPHA); overlay.fill((0, 0, 0, 190))
     while True:
         for event in pygame.event.get():
             if event.type == pygame.QUIT: pygame.quit(); sys.exit()
@@ -172,7 +163,30 @@ def demander_mode_reseau(screen, clock, largeur, hauteur):
         pygame.display.flip(); clock.tick(60)
 
 def demander_ip(screen, clock, largeur, hauteur):
-    return "127.0.0.1"
+    ip = "127.0.0.1"
+    while True:
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT: pygame.quit(); sys.exit()
+            if event.type == pygame.KEYDOWN:
+                if event.key == pygame.K_RETURN: return ip.strip() if ip.strip() else "127.0.0.1"
+                elif event.key == pygame.K_BACKSPACE: ip = ip[:-1]
+                else:
+                    if event.unicode.isprintable() and len(ip) < 30: ip += event.unicode
+        screen.fill((15, 20, 35))
+        titre = font_titre.render("IP du serveur", True, (255, 255, 255))
+        input_rect = pygame.Rect(largeur // 2 - 180, hauteur // 2 - 20, 360, 60)
+        pygame.draw.rect(screen, (40, 55, 85), input_rect)
+        pygame.draw.rect(screen, (255, 255, 255), input_rect, 3)
+        texte_surface = font_input.render(ip, True, (255, 255, 255))
+        screen.blit(titre, titre.get_rect(center=(largeur // 2, hauteur // 2 - 140)))
+        screen.blit(texte_surface, texte_surface.get_rect(midleft=(input_rect.x + 15, input_rect.y + input_rect.height // 2)))
+        pygame.display.flip(); clock.tick(60)
+
+def dessiner_loading(screen, l, h, t):
+    screen.fill((0, 0, 0))
+    txt = font_loading.render(f"Chargement... {min(100, int(t / 16))}%", True, (255, 255, 255))
+    screen.blit(txt, (l // 2 - txt.get_width() // 2, h // 2))
+    pygame.display.flip()
 
 def get_objectives_for_players(num_players):
     scaling = {1: 5, 2: 8, 3: 12, 4: 16, 5: 18, 6: 20, 7: 22, 8: 25}
@@ -191,17 +205,23 @@ def demarrer_loading():
     loading_start_time = pygame.time.get_ticks()
 
 def initialiser_partie():
-    global etat_jeu, puzzle_actif, partie_terminee, map_loaded
+    global etat_jeu, puzzle_actif, partie_terminee, map_loaded, current_roller_id
     if mode_reseau == "SOLO":
         map_manager.generate_new_map()
         map_loaded = True
         map_manager.min_quests_to_exit = get_objectives_for_players(1)
+        current_roller_id = local_player.player_id
     elif est_host and not map_loaded:
         map_manager.generate_new_map()
         map_loaded = True
         nb_joueurs = 1 + len(remote_players)
         map_manager.min_quests_to_exit = get_objectives_for_players(nb_joueurs)
-        if client: client.send({"type": "MAP_DATA", "map_data": build_map_data()})
+        joueurs_vivants = [p for p in [local_player] + list(remote_players.values()) if p.vies > 0]
+        if joueurs_vivants:
+            current_roller_id = random.choice(joueurs_vivants).player_id
+            if client:
+                client.send({"type": "MAP_DATA", "map_data": build_map_data()})
+                client.send({"type": "NEW_ROLLER", "roller_id": current_roller_id})
     
     if map_loaded:
         central_room.reset_round()
@@ -226,6 +246,9 @@ def draw_remote_players_same_room(screen, font):
         room_pos = getattr(joueur, "room_pos", None)
         if room_pos is not None and meme_salle(room_pos, salle_locale):
             joueur.draw(screen, font, actif=False)
+            if getattr(joueur, 'est_bloque', False):
+                pygame.draw.rect(screen, (255, 0, 0), (joueur.x + joueur.size//2 - 10, joueur.y - 20, 20, 15), border_radius=4)
+                pygame.draw.circle(screen, (255, 0, 0), (joueur.x + joueur.size//2, joueur.y - 20), 8, 3)
 
 def update_remote_player(data):
     player_id = data["id"]
@@ -255,21 +278,8 @@ def remplacer_liste_joueurs(players_data):
             joueur.x, joueur.y, joueur.score, joueur.vies, joueur.indices_restants, joueur.est_bloque, joueur.room_pos = old["x"], old["y"], old["score"], old["vies"], old["indices_restants"], old["est_bloque"], old["room_pos"]
         remote_players[pdata["id"]] = joueur
 
-def deplacer_joueur_dans_lobby():
-    touches = pygame.key.get_pressed()
-    dx, dy = 0, 0
-    if touches[pygame.K_LEFT] or touches[pygame.K_q]: dx -= local_player.speed
-    if touches[pygame.K_RIGHT] or touches[pygame.K_d]: dx += local_player.speed
-    if touches[pygame.K_UP] or touches[pygame.K_z]: dy -= local_player.speed
-    if touches[pygame.K_DOWN] or touches[pygame.K_s]: dy += local_player.speed
-    if dx != 0 or dy != 0: local_player.move(dx, dy, min_x=30, max_x=LARGEUR - 30, min_y=110, max_y=HAUTEUR - 170)
 
-def dessiner_loading(screen, l, h, t):
-    screen.fill((0, 0, 0))
-    txt = font_loading.render(f"Chargement... {min(100, int(t / 16))}%", True, (255, 255, 255))
-    screen.blit(txt, (l // 2 - txt.get_width() // 2, h // 2))
-    pygame.display.flip()
-
+# ================== BOUCLE GLOBALE ==================
 while True:
     while True:
         choix = menu_principal.afficher(ecran, horloge)
@@ -341,6 +351,13 @@ while True:
         roller = next((j for j in joueurs if j.player_id == current_roller_id), local_player)
         roller_name = roller.nom
 
+        # Cascade Spectateur : Si tout le monde meurt
+        if etat_jeu == "SPECTATOR":
+            alive_players = [p for p in remote_players.values() if p.vies > 0]
+            if local_player.vies > 0: alive_players.append(local_player)
+            if not alive_players:
+                etat_jeu = "MORT"
+
         break_to_main_menu = False
 
         for event in pygame.event.get():
@@ -351,14 +368,22 @@ while True:
 
             if etat_jeu == "LOBBY":
                 action, data = lobby_menu.handle_event(event)
-                if action == "SEND_CHAT" and client:
-                    client.send({"type": "CHAT", "author": local_player.nom, "message": data})
+                if action == "SEND_CHAT":
+                    if client: client.send({"type": "CHAT", "author": local_player.nom, "message": data})
+                    else:
+                        chat_messages.append(f"{local_player.nom} : {data}")
+                        chat_messages = chat_messages[-15:]
+                        lobby_menu.set_chat_messages(chat_messages)
                 elif action == "START_GAME":
                     if client: client.send({"type": "START_GAME"})
                     else: demarrer_loading()
+                elif action == "CHANGE_CHARACTER":
+                    local_player.image_path = demander_personnage(ecran, horloge, LARGEUR, HAUTEUR)
+                    local_player.charger_image()
+                    if client: client.send({"type": "PLAYER_STATE", "id": local_player.player_id, "image_path": local_player.image_path})
 
             elif etat_jeu == "MORT" or partie_terminee:
-                action = death_screen.handle_input(event) if etat_jeu == "MORT" else end_screen.handle_input(event)
+                action = death_screen.handle_input(event, mode_solo=(mode_reseau == "SOLO")) if etat_jeu == "MORT" else end_screen.handle_input(event)
                 if action == "REJOUER":
                     joueur_actif.reset()
                     joueur_actif.x, joueur_actif.y = 220, 360
@@ -390,6 +415,14 @@ while True:
                     etat_jeu = "CENTRAL"
                     puzzle_actif = None
                     for j in joueurs: j.est_bloque = False
+                    
+                    # Redéfinir le lanceur
+                    if est_host:
+                        vivants = [p for p in joueurs if p.vies > 0]
+                        if vivants:
+                            current_roller_id = random.choice(vivants).player_id
+                            if client: client.send({"type": "NEW_ROLLER", "roller_id": current_roller_id})
+                            
                 elif res_txt == "MAUVAISE_REPONSE":
                     if "lose_salle" in sons: sons["lose_salle"].play()
                     joueur_actif.perdre_points(50)
@@ -402,14 +435,31 @@ while True:
             elif etat_jeu == "CENTRAL" and event.type == pygame.KEYDOWN:
                 if event.key == pygame.K_m: minimap.toggle()
                 if event.key == pygame.K_e and not local_player.est_bloque:
+                    # Libération de l'allié prisonnier (Coûte 1 VIE)
                     for j in joueurs_meme_salle:
-                        if j != local_player and getattr(j, 'est_bloque', False) and local_player.rect.colliderect(j.rect.inflate(40, 40)):
+                        if j != local_player and getattr(j, 'est_bloque', False) and local_player.rect.colliderect(j.rect.inflate(60, 60)):
+                            
+                            # Le joueur local sacrifie 1 vie
+                            local_player.perdre_vie()
                             j.est_bloque = False 
-                            if client: client.send({"type": "UNLOCK_PLAYER", "id": j.player_id})
+                            
+                            if client: 
+                                # Prévient tout le monde que le joueur est débloqué
+                                client.send({"type": "UNLOCK_PLAYER", "id": j.player_id})
+                                # Prévient tout le monde que le sauveur a perdu une vie
+                                client.send({"type": "PLAYER_STATE", "id": local_player.player_id, "vies": local_player.vies})
+                                
+                                # Assigne une nouvelle destination au joueur libéré si on est l'hôte
+                                if est_host:
+                                    new_tgt = [random.randint(0,2), random.randint(0,2)]
+                                    client.send({"type": "NEW_DESTINATION", "id": j.player_id, "target": new_tgt})
+                            
+                            # Si le sauveur meurt de son sacrifice
+                            if local_player.vies <= 0:
+                                etat_jeu = "MORT"
+        if break_to_main_menu: break
 
-        if break_to_main_menu:
-            break
-
+        # --- RÉCEPTION RÉSEAU ---
         if client:
             for message in client.get_messages():
                 msg_type = message.get("type")
@@ -424,6 +474,20 @@ while True:
                     map_loaded = True
                     if etat_jeu == "LOADING": initialiser_partie()
                 elif msg_type == "PLAYER_STATE": update_remote_player(message)
+                elif msg_type == "CHAT":
+                    chat_messages.append(f"{message['author']} : {message['message']}")
+                    chat_messages = chat_messages[-15:]
+                    if etat_jeu == "LOBBY": lobby_menu.set_chat_messages(chat_messages)
+                elif msg_type == "NEW_ROLLER":
+                    current_roller_id = message["roller_id"]
+                elif msg_type == "DOOR_OPENED":
+                    central_room.open_door(message["index"])
+                elif msg_type == "NEW_DESTINATION":
+                    if message["id"] == local_player.player_id:
+                        central_room.target_coords = message["target"]
+                elif msg_type == "UNLOCK_PLAYER":
+                    if message.get("id") == local_player.player_id: local_player.est_bloque = False
+                    elif message.get("id") in remote_players: remote_players[message.get("id")].est_bloque = False
                 elif msg_type == "SYNC_ROLL":
                     central_room.apply_dice_result({
                         "portes": message["portes"], "salle_cible": message["target_coords"], "joueurs_requis": message["req_players"]
@@ -434,7 +498,8 @@ while True:
                     etat_jeu = "ROLL_DICE"
 
         if etat_jeu == "LOBBY":
-            deplacer_joueur_dans_lobby()
+            # Le lobby n'utilise plus deplacer_joueur_dans_lobby(), il se gère lui-même dans update()
+            lobby_menu.update() 
             lobby_menu.update_players(joueurs)
             lobby_menu.draw(ecran)
 
@@ -446,25 +511,31 @@ while True:
 
         elif etat_jeu == "ROLL_DICE":
             map_manager.draw(ecran)
-            central_room.draw(ecran)
+            central_room.draw(ecran, is_my_turn, roller_name)
             local_player.draw(ecran, font_joueur, actif=True)
             draw_remote_players_same_room(ecran, font_joueur)
             res = de_jeu.update(len(joueurs))
             de_jeu.draw(ecran)
+            
             if res is not None or not de_jeu.rolling:
+                # Le lanceur devient bloqué après son lancer
+                if local_player.player_id == current_roller_id:
+                    local_player.est_bloque = True
+                
                 for j in joueurs:
-                    if j not in de_jeu.selected_players: j.est_bloque = True
-                    else:
+                    if j.player_id != current_roller_id and j not in de_jeu.selected_players: j.est_bloque = True
+                    elif j.player_id != current_roller_id:
                         j.is_selected = True
                         j.est_bloque = False
                 etat_jeu = "CENTRAL"
 
         elif etat_jeu == "CENTRAL" and not partie_terminee:
+            # Sécurité sur les limites de la carte
             dx = (touches[pygame.K_d] - touches[pygame.K_q]) * local_player.speed
             dy = (touches[pygame.K_s] - touches[pygame.K_z]) * local_player.speed
-            local_player.move(dx, dy, 0, LARGEUR, 0, HAUTEUR)
+            local_player.move(dx, dy, 50, LARGEUR - 50, 50, HAUTEUR - 50)
 
-            result = central_room.update(local_player, len(joueurs_meme_salle), is_my_turn, roller_name, can_roll_dice=(mode_reseau == "SOLO" or est_host))
+            result = central_room.update(local_player, len(joueurs_meme_salle), is_my_turn, roller_name, can_roll_dice=True)
             if local_player.vies <= 0: etat_jeu = "MORT"
             elif result == "FIN_DU_JEU": partie_terminee = True
             elif result == "START_ROLL":
@@ -474,13 +545,32 @@ while True:
                 nb_a_sel = len(joueurs) if final_face == "+" else min(int(final_face), len(joueurs))
                 selected = random.sample(joueurs, nb_a_sel)
                 selected_ids = [p.player_id for p in selected]
-                de_jeu.roll(final_face, selected, getattr(central_room, "target_name", "Grotte"))
+                
+                target_to_send = central_room.target_coords
+                
+                # --- CORRECTION DE L'AFFICHAGE "SALLE 22" -> "C3" ---
+                if target_to_send:
+                    # Transforme [x, y] en format Lettre+Chiffre (ex: [0,0] -> A1, [2,2] -> C3)
+                    lettre = chr(65 + int(target_to_send[0])) # 65 = 'A' en ASCII
+                    chiffre = str(int(target_to_send[1]) + 1)
+                    nom_salle = f"Salle {lettre}{chiffre}"
+                else:
+                    nom_salle = "Objectif Inconnu"
+                
+                de_jeu.roll(final_face, selected, nom_salle)
                 etat_jeu = "ROLL_DICE"
                 if client:
                     client.send({
                         "type": "SYNC_ROLL", "final_face": final_face, "selected_ids": selected_ids,
-                        "target_room": getattr(central_room, "target_name", "Grotte"), "portes": central_room.door_dice_results,
-                        "target_coords": central_room.target_coords, "req_players": req_players
+                        "target_room": nom_salle, "portes": central_room.door_dice_results,
+                        "target_coords": target_to_send, "req_players": req_players
+                    })
+                etat_jeu = "ROLL_DICE"
+                if client:
+                    client.send({
+                        "type": "SYNC_ROLL", "final_face": final_face, "selected_ids": selected_ids,
+                        "target_room": target_to_send, "portes": central_room.door_dice_results,
+                        "target_coords": target_to_send, "req_players": req_players
                     })
             elif result == "LANCER_ENIGME":
                 etat_jeu = "ENIGME"
@@ -502,20 +592,35 @@ while True:
         if etat_jeu in ("CENTRAL", "ENIGME", "MORT") and not partie_terminee:
             map_manager.draw(ecran)
             if etat_jeu != "ENIGME":
-                central_room.draw(ecran)
+                central_room.draw(ecran, is_my_turn, roller_name)
+                
+                # Visualisation pour débloquer l'allié
+                for j in joueurs_meme_salle:
+                    if j != local_player and getattr(j, 'est_bloque', False):
+                        if local_player.rect.colliderect(j.rect.inflate(60, 60)):
+                            txt = font_joueur.render("Appuyez sur E pour libérer", True, (255, 255, 0))
+                            ecran.blit(txt, (j.x - 30, j.y - 45))
+
                 if central_room.target_coords is not None and map_manager.player_pos is not None:
                     if list(central_room.target_coords) == list(map_manager.player_pos):
                         sorcier.draw(ecran, local_player.rect)
+                
                 local_player.draw(ecran, font_joueur, actif=True)
+                # Cadenas rouge personnel
+                if local_player.est_bloque:
+                    pygame.draw.rect(ecran, (255, 0, 0), (local_player.x + local_player.size//2 - 10, local_player.y - 20, 20, 15), border_radius=4)
+                    pygame.draw.circle(ecran, (255, 0, 0), (local_player.x + local_player.size//2, local_player.y - 20), 8, 3)
+                
                 draw_remote_players_same_room(ecran, font_joueur)
                 if central_room.dice_rolled: de_jeu.draw_selection_ui(ecran, LARGEUR)
                 if etat_jeu == "MORT": death_screen.draw(ecran, mode_solo=(mode_reseau == "SOLO"))
+                
             elif etat_jeu == "ENIGME" and puzzle_actif:
                 if local_player.is_selected:
                     if puzzle_actif.etat == "WAITING":
                         dx = (touches[pygame.K_d] - touches[pygame.K_q]) * local_player.speed
                         dy = (touches[pygame.K_s] - touches[pygame.K_z]) * local_player.speed
-                        local_player.move(dx, dy, 0, LARGEUR, 0, HAUTEUR)
+                        local_player.move(dx, dy, 50, LARGEUR - 50, 50, HAUTEUR - 50)
                     if puzzle_actif.room_type != "TEXT":
                         res_survie = puzzle_actif.update_survival(local_player)
                         if res_survie is True:
@@ -529,6 +634,13 @@ while True:
                             etat_jeu = "CENTRAL"
                             puzzle_actif = None
                             for j in joueurs: j.est_bloque = False
+                            
+                            # Nouveau lanceur aléatoire
+                            if est_host:
+                                vivants = [p for p in joueurs if p.vies > 0]
+                                if vivants:
+                                    current_roller_id = random.choice(vivants).player_id
+                                    if client: client.send({"type": "NEW_ROLLER", "roller_id": current_roller_id})
                         elif res_survie is False:
                             if "lose_salle" in sons: sons["lose_salle"].play()
                             if "game" in sons: sons["game"].stop()
@@ -536,7 +648,7 @@ while True:
                             etat_jeu = "MORT"
                     if puzzle_actif: puzzle_actif.draw(ecran, local_player, sorcier)
                 else:
-                    central_room.draw(ecran)
+                    central_room.draw(ecran, is_my_turn, roller_name)
                     local_player.draw(ecran, font_joueur, actif=True)
                     de_jeu.draw_selection_ui(ecran, LARGEUR)
 
