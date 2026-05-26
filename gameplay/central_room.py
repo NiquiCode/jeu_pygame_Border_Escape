@@ -10,6 +10,7 @@ class CentralRoom:
         self.table_rect = pygame.Rect(screen_width//2 - 60, screen_height//2 - 50, 120, 100)
         self.dice_rolled = False
         self.target_coords = None
+        self.target_name = "Aucun objectif" # Variable synchronisée pour le HUD
         self.door_dice_results = []
         self.exit_portal_rect = pygame.Rect(screen_width//2 - 40, screen_height//2 - 40, 80, 80)
         self.font_prompt = pygame.font.SysFont("consolas", 24, True)
@@ -17,14 +18,22 @@ class CentralRoom:
     def reset_round(self):
         self.dice_rolled = False
         self.door_dice_results = []
+        
+    def _format_target_name(self, coords):
+        if not coords: return "Inconnu"
+        lettre = chr(65 + int(coords[0]))
+        chiffre = str(int(coords[1]) + 1)
+        return f"Salle {lettre}{chiffre}"
 
     def roll_dice(self, total_players):
         res = DiceManager().lancer_systeme_des(total_players, ["rouge", "bleu", "vert", "jaune"])
         self.target_coords = res.get("salle_cible")
+        self.target_name = self._format_target_name(self.target_coords)
         self.required_players = res.get("joueurs_requis", 1)
-        self.door_dice_results = res.get("portes", [])
-        for p in self.door_dice_results:
-            p["ouverte"] = False
+        
+        doors = res.get("portes", [])
+        for p in doors: p["ouverte"] = False
+        self.door_dice_results = doors
         self.dice_rolled = True
         return res
 
@@ -32,7 +41,9 @@ class CentralRoom:
         self.door_dice_results = data.get("portes", [])
         for p in self.door_dice_results:
             if "ouverte" not in p: p["ouverte"] = False
+            
         self.target_coords = tuple(data.get("salle_cible")) if data.get("salle_cible") else None
+        self.target_name = self._format_target_name(self.target_coords)
         self.required_players = data.get("joueurs_requis", 1)
         self.dice_rolled = True
 
@@ -45,7 +56,6 @@ class CentralRoom:
             if player.rect.colliderect(self.exit_portal_rect):
                 return "FIN_DU_JEU"
 
-        # Téléporte le prisonnier au centre s'il doit lancer
         if is_my_turn and player.est_bloque and not self.dice_rolled:
             player.x = self.width//2 - player.size//2
             player.y = self.height//2 + 60
@@ -57,8 +67,18 @@ class CentralRoom:
                 return "START_ROLL"
         
         if self.dice_rolled and self.door_dice_results:
+            grid_size = getattr(self.map_manager, "grid_size", 3)
+            x, y = self.map_manager.player_pos
+            
             for i, porte in enumerate(self.door_dice_results):
                 pos = str(porte.get("position") or porte.get("direction") or porte.get("pos", "")).lower()
+                
+                # SÉCURITÉ ABSOLUE : Blocage des portes hors-carte (Pas de collision possible)
+                if pos in ("haut", "n", "up", "north") and y <= 0: continue
+                if pos in ("bas", "s", "down", "south") and y >= grid_size - 1: continue
+                if pos in ("gauche", "o", "w", "left", "west") and x <= 0: continue
+                if pos in ("droite", "e", "right", "east") and x >= grid_size - 1: continue
+
                 longueur, epaisseur = 120, 20
                 rect_porte = None
                 
@@ -94,7 +114,6 @@ class CentralRoom:
         pygame.draw.rect(screen, (80, 50, 20), self.table_rect, border_radius=10)
         pygame.draw.rect(screen, (120, 80, 40), self.table_rect, 3, border_radius=10)
 
-        # Texte indicatif de lancer
         if not self.dice_rolled:
             if is_my_turn:
                 prompt = self.font_prompt.render("[E] Lancer les dés", True, (0, 255, 0))
@@ -103,10 +122,19 @@ class CentralRoom:
                 prompt = self.font_prompt.render(f"En attente de {roller_name}...", True, (200, 200, 200))
                 screen.blit(prompt, (self.width//2 - prompt.get_width()//2, self.height//2 - 80))
 
-        # Portes générées
         if self.dice_rolled and self.door_dice_results:
+            grid_size = getattr(self.map_manager, "grid_size", 3)
+            x, y = self.map_manager.player_pos
+            
             for porte in self.door_dice_results:
                 pos = str(porte.get("position") or porte.get("direction") or porte.get("pos", "")).lower()
+                
+                # SÉCURITÉ ABSOLUE : Blocage des portes hors-carte (Pas de dessin)
+                if pos in ("haut", "n", "up", "north") and y <= 0: continue
+                if pos in ("bas", "s", "down", "south") and y >= grid_size - 1: continue
+                if pos in ("gauche", "o", "w", "left", "west") and x <= 0: continue
+                if pos in ("droite", "e", "right", "east") and x >= grid_size - 1: continue
+
                 longueur, epaisseur = 120, 20
                 rect_porte = None
                 

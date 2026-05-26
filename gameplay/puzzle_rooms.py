@@ -76,7 +76,7 @@ class PuzzleRoom:
                 {"q": "Calcule : 15 + 27 =", "r": "42", "ind": "La réponse à l'univers.", "max": 5},
                 {"q": "Calcule : 50 - 15 =", "r": "35", "ind": "Soustraction simple.", "max": 5},
                 {"q": "Je suis plein de trous mais je retiens l'eau.", "r": "eponge", "ind": "Utile sous l'évier.", "max": 15},
-                {"q": "Qu'est-ce qui a un cou mais pas de tête ?", "r": "bouteille", "ind": "Contient un liquide.", "max": 15},
+                {"q": "Qu'est-ce qui a un cou mais pas de tête ?", "r": "bouteille", "ind": "Contient un liquidessssssss.", "max": 15},
                 {"q": "Plus je sèche, plus je suis mouillée. Qui suis-je ?", "r": "serviette", "ind": "Après le bain.", "max": 15},
                 {"q": "Capitale de l'Italie ?", "r": "rome", "ind": "Proche du Colisée.", "max": 15},
                 {"q": "Calcule : 9 * 4 =", "r": "36", "ind": "Table de multiplication.", "max": 5}
